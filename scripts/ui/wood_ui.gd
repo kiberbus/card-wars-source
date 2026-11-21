@@ -331,6 +331,38 @@ static func copy_button(color: Color, side := 64) -> Button:
 	return b
 
 
+## The «watch» button: no text, a paper eye (a friend's row: watch their match).
+static func eye_button(color: Color, side := 54) -> Button:
+	var k := font_scale
+	var b := button("", color, 26, Vector2(side, side) * k)
+	b.custom_minimum_size = b.custom_minimum_size.max(Vector2(side, side) * k)
+	var icon := Control.new()
+	icon.set_anchors_preset(Control.PRESET_FULL_RECT)
+	icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	icon.draw.connect(func():
+		var u := minf(icon.size.x, icon.size.y) / 64.0
+		var c := icon.size * 0.5
+		var w := 22.0 * u       # half the width of the eye
+		var h := 13.0 * u       # half its height
+		var n := 16
+		var pts := PackedVector2Array()
+		for i in n + 1:         # the upper lid, left to right
+			var t := float(i) / n
+			pts.append(c + Vector2(-w + 2.0 * w * t, -h * sin(PI * t)))
+		for i in range(n - 1, 0, -1):   # the lower lid, back
+			var t := float(i) / n
+			pts.append(c + Vector2(-w + 2.0 * w * t, h * sin(PI * t)))
+		var outline := pts.duplicate()
+		outline.append(pts[0])
+		icon.draw_colored_polygon(pts, PAPER)
+		icon.draw_polyline(outline, INK, 3.0 * u, true)
+		icon.draw_circle(c, 8.0 * u, INK, true, -1.0, true)
+		icon.draw_circle(c + Vector2(-2.5, -2.5) * u, 2.5 * u, PAPER, true, -1.0, true))
+	icon.resized.connect(icon.queue_redraw)
+	b.add_child(icon)
+	return b
+
+
 ## A step tab: paper, light when it is the current step.
 static func tab(s: String, size := 26, min_size := Vector2(210, 52)) -> Button:
 	var b := button(s, PAPER, size, min_size)

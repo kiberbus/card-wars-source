@@ -21,6 +21,11 @@ const ASK_MS := 8000
 const KEEP := 100                   # messages of a channel kept
 const TEXT_MAX := 200
 const BIO_MAX := 160                # characters of the description of a profile
+## «Наблюдать» on a friend (the eye on their row): the friend's game gives its watch code by a private
+## message, so the lines are plain words, and one without the game's answer can still answer by hand.
+const WATCH_ASK := "Хочу посмотреть твою игру"
+const WATCH_CODE := "Код наблюдателя: "
+const WATCH_NONE := "Сейчас мою игру смотреть нельзя"
 const RESULTS_KEPT := 20            # results of games waiting for the link
 ## Why a request failed, as a short line for the player.
 const REASONS := {"offline": "Нет связи", "timeout": "Нет связи", "token": "Нужно войти снова", "none": "Игрока нет в сети",
@@ -253,6 +258,9 @@ func _msg(d: Dictionary) -> Dictionary:
 
 ## A message into a channel (from the server, from the match, or a line of the game: "sys").
 func add(ch: String, msg: Dictionary) -> void:
+	if ch != COMMON and ch != GAME and is_service(String(msg.get("text", ""))):
+		message.emit(ch, msg)       # the eye's messages (WATCH_*): the panel answers them, the chat never shows them
+		return
 	if not chats.has(ch):
 		chats[ch] = []
 	chats[ch].append(msg)
@@ -377,8 +385,33 @@ func _push_status() -> void:
 	if st == _sent_status:
 		return
 	_sent_status = st
-	_put({"op": "s_status", "st": st[0], "code": st[1], "pv": st[2] if st.size() > 2 else "friends",
-		"rt": st[3] if st.size() > 3 else "", "inv": st[4] if st.size() > 4 else "all"})
+	var d := {"op": "s_status", "st": st[0], "code": st[1], "pv": st[2] if st.size() > 2 else "friends",
+		"rt": st[3] if st.size() > 3 else "", "inv": st[4] if st.size() > 4 else "all"}
+	if st.size() > 5 and String(st[5]) != "":
+		d["wc"] = st[5]     # the watch code of our match: the server may give it to friends (rows' "wc")
+	if st.size() > 6:
+		d["w"] = st[6]      # in a game: can friends watch it (a match for two online), not one against the AI
+	_put(d)
+
+
+## A private message of the eye (WATCH_ASK / WATCH_CODE / WATCH_NONE): handled, never shown.
+static func is_service(text: String) -> bool:
+	text = text.strip_edges()
+	return text == WATCH_ASK or text == WATCH_NONE or watch_code_in(text) != ""
+
+
+## The watch code in a message of the form WATCH_CODE + code, or "".
+static func watch_code_in(text: String) -> String:
+	text = text.strip_edges()
+	if not text.begins_with(WATCH_CODE):
+		return ""
+	var code := text.substr(WATCH_CODE.length()).strip_edges().to_upper()
+	if code.length() < 4 or code.length() > 8:
+		return ""
+	for ch in code:
+		if not ((ch >= "A" and ch <= "Z") or (ch >= "0" and ch <= "9")):
+			return ""
+	return code
 
 
 static func reason(r: String) -> String:

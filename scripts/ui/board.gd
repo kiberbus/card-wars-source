@@ -149,6 +149,7 @@ var seated := false              # more than two seats (2 на 2, на трои�
 var _duel_layout: Array = []     # [control, position, size] of the playmat table, kept while the round one is up
 var viewer := 0
 var hide_hands := false
+var replay_own := -1            # a friend's ranked match watched live: only this seat's hand is open
 var views: Dictionary = {}
 
 var world: Node2D
@@ -405,6 +406,7 @@ func enable_replay(steps: Array, seat: int, pos := 0) -> void:
 	local_player = -1
 	viewer = seat
 	hide_hands = false
+	replay_own = -1
 	for key in hero_ui:
 		hero_ui[key]["side"] = -1
 	sync()
@@ -1691,7 +1693,8 @@ func sync() -> void:
 			seen[c.uid] = true
 			var mate: bool = teams and side != viewer and not game.is_foe(viewer, side)
 			var show: bool = ((bottom and (_plays(side) or _watching())) or mate or replay_steps != null \
-				or sandbox != null or game.train.hand_shown(viewer, side)) and not hide_hands
+				or sandbox != null or game.train.hand_shown(viewer, side)) and not hide_hands \
+				and (replay_own < 0 or side == replay_own)
 			v.set_face_up(show)
 			v.set_secret(false)
 			v.set_upgraded(c.upgraded)
@@ -1706,7 +1709,7 @@ func sync() -> void:
 				v.target_scale = 0.38 if teams else P_S_HAND
 			v.z_index = 30 + i
 			v.lift = 0.3
-			if (replay_steps != null or sandbox != null) and not teams and not bottom:
+			if ((replay_steps != null and (replay_own < 0 or side == replay_own)) or sandbox != null) and not teams and not bottom:
 				# A replay shows the other hand too: upright, so it can be read.
 				lay = _open_hand_layout(i, n)
 				v.target_pos = lay[0]

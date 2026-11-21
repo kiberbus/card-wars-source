@@ -406,6 +406,18 @@ func _menus() -> void:
 	main.social_ui.show_panel()
 	await _wait(0.6)
 	await _check("social")
+	# Rows of friends as the server gives them (no server here): the eye of a friend in a game fits.
+	var list: VBoxContainer = main.social_ui._list
+	if list != null:
+		for ch in list.get_children():
+			ch.queue_free()
+		for r in [{"nick": "Blitz_29", "st": "menu", "fr": "friend", "rk": 1},
+				{"nick": "BrownBubbles", "st": "game", "fr": "friend", "rk": 5},
+				{"nick": "MiMiK", "st": "game", "fr": "friend", "rk": 6, "wc": "ABCDEF"},
+				{"nick": "Doc", "st": "game", "fr": "", "rk": 3}]:
+			list.add_child(main.social_ui._row(r))
+		await _wait(0.3)
+		await _check("social_friends")
 	main.social_ui.toggle()
 	await _wait(0.4)
 
