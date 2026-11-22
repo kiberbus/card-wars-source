@@ -143,6 +143,7 @@ const T3_DISCARD := [Vector2(190, 900), Vector2(190, 330), Vector2(1370, 330)]
 const T3_HAND := [Vector2(780, 1045), Vector2(140, 190), Vector2(1420, 190)]
 
 var game = null
+var tutorial = null
 var teams := false               # the table round the seats: 2 на 2, на троих till a player drops out
 var tri := false                 # на троих on that table
 var seated := false              # more than two seats (2 на 2, на троих): AI and people by seat
@@ -1819,6 +1820,8 @@ func sync() -> void:
 	_update_piles()
 	_update_hud()
 	_update_preview()
+	if tutorial != null:
+		tutorial.on_hud_event()
 	decor.queue_redraw()
 
 
@@ -2164,6 +2167,8 @@ func _update_hud() -> void:
 		hero_button.disabled = false
 	if _ph:
 		_phone_hud()
+		if tutorial != null:
+			tutorial.update_board_ui()
 		return
 	_fit_button(hero_button, HUD_W, 18, 13)
 	log_panel.position.y = 578.0 if hero_button.visible else 524.0
@@ -2174,6 +2179,8 @@ func _update_hud() -> void:
 		log_panel.size.y -= 62.0
 		undo_button.visible = true
 	_update_wagon()
+	if tutorial != null:
+		tutorial.update_board_ui()
 
 
 ## A phone: the rows of the right column under the main button that come and go (_layout_column).
@@ -3487,6 +3494,9 @@ func _can_act() -> bool:
 
 
 func _click_view(v) -> void:
+	if tutorial != null and not tutorial.allow_card_click(v.uid):
+		tutorial.reject_action()
+		return
 	var w: Dictionary = game.where(v.uid)
 	var zone: String = w["zone"]
 	if zone == "hand" and w["p"] == viewer or _is_xray_top(v.uid):
@@ -3511,6 +3521,14 @@ func _click_view(v) -> void:
 
 
 func _click_empty(wpos: Vector2) -> void:
+	if tutorial != null:
+		if _selected_uid != -1:
+			var drop = _drop_target_at(wpos)
+			if drop == null or not tutorial.allow_drop(_selected_uid, drop):
+				tutorial.reject_action()
+				return
+		elif tutorial.blocks_field_click():
+			return
 	if _selected_uid == -1 and _phone_seat_zoom(wpos):
 		return
 	for side in game.sides():
@@ -3631,6 +3649,9 @@ func _drop_target_at(wpos: Vector2):
 
 
 func _begin_drag(v) -> void:
+	if tutorial != null and not tutorial.allow_card_click(v.uid):
+		tutorial.reject_action()
+		return
 	context_menu.visible = false
 	_selected_uid = v.uid
 	_drag_view = v
@@ -3659,6 +3680,9 @@ func _end_drag() -> void:
 func _play_selected(t: Dictionary) -> void:
 	var uid := _selected_uid
 	_clear_selection()
+	if tutorial != null and not tutorial.allow_drop(uid, t):
+		tutorial.reject_action()
+		return
 	_issue({"cmd": "play", "uid": uid, "lane": t["lane"]})
 
 
@@ -3688,6 +3712,8 @@ func _show_card_menu(v, zone: String, lane: int) -> void:
 		items.append([act_label, UI.BLUE, func(): _issue({"cmd": "activate", "kind": zone, "lane": lane})])
 	if zone == "creature" and game.can_attack(viewer, lane):
 		items.append(["Атаковать", UI.RED, func(): _issue({"cmd": "attack", "lane": lane})])
+	if tutorial != null:
+		items = tutorial.filter_menu_items(items)
 	if items.is_empty():
 		var why := "Нет доступных действий"
 		if game.is_first_turn() and game.floop_ability(c, viewer, zone, lane) != "":
@@ -3778,6 +3804,9 @@ func _issue(c: Dictionary, timed_out := false) -> void:
 func _issue_as(p: int, c: Dictionary, timed_out := false) -> void:
 	if _busy:
 		return
+	if tutorial != null and not tutorial.allow_command(p, c):
+		tutorial.reject_action()
+		return
 	if net != null:
 		_net_seq_out += 1
 		var msg := {"t": "cmd", "p": p, "c": c, "n": _net_seq_out, "h": game.state_hash()}
@@ -3851,10 +3880,14 @@ func _command(p: int, c: Dictionary) -> void:
 		return
 	if not _undo_seat(p):
 		await game.run_command(p, c)
+		if tutorial != null:
+			tutorial.on_human_command(p, c)
 		return
 	var point: Dictionary = game.undo_point(p)
 	var h: int = game.state_hash()
 	await game.run_command(p, c)
+	if tutorial != null:
+		tutorial.on_human_command(p, c)
 	var ok: bool = game.undo_clean(point) and game.state_hash() != h
 	_undo_point = point if ok and game.turn_player == p and (game.phase == "main" or game.phase == "attack") else {}
 
@@ -4008,6 +4041,8 @@ func _run_ai_command(p: int, cmd: Dictionary) -> void:
 		await _run(func(): await game.run_command(p, cmd))
 	if sandbox != null:
 		sandbox.settle()
+	if tutorial != null:
+		tutorial.on_ai_command(p, cmd)
 	if game == null or game.state_hash() != before or game.turn_player != p \
 			or not (game.phase == "main" or game.phase == "attack"):
 		return
@@ -4326,6 +4361,8 @@ func _close_inspect() -> void:
 # ================================================================ chooser
 
 func choose(req: Dictionary):
+	if tutorial != null:
+		req = tutorial.filter_choice(req)
 	if replay_steps != null:
 		return await _replay_choice(req)
 	if (ai_vs_ai or ai_agent != null or not seat_agents.is_empty()) and _is_ai_seat(int(req.get("player", local_player))):
@@ -4816,6 +4853,8 @@ func shake_screen(amount: float) -> void:
 
 
 func play(ev: Dictionary) -> void:
+	if tutorial != null:
+		tutorial.on_event(ev)
 	var v = views.get(ev.get("uid", -1))
 	match ev["type"]:
 		"log":
