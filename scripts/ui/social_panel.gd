@@ -15,6 +15,10 @@ const Avatar = preload("res://scripts/net/avatar.gd")
 const AvatarView = preload("res://scripts/ui/avatar_view.gd")
 const NickStyle = preload("res://scripts/ui/nick_style.gd")
 const AwardsShelf = preload("res://scripts/ui/awards_shelf.gd")
+const DeckShare = preload("res://scripts/net/deck_share.gd")
+const CardDB = preload("res://scripts/core/card_db.gd")
+const CustomDecks = preload("res://scripts/core/custom_decks.gd")
+const DECK_PIC_H := 92          # the height of a card's picture on a deck in the chat
 const GOLD := Color(1.0, 0.86, 0.35)
 const GREEN := Color(0.6, 1.0, 0.65)
 const RED := Color(1.0, 0.5, 0.45)
@@ -41,7 +45,8 @@ var _tabs := {}                 # tab -> Button
 var _body: VBoxContainer
 var _list: VBoxContainer        # rows of the online / friends tab
 var _note: Label                # a line under the list: an answer, a reason
-var _chat_log: RichTextLabel
+var _chat_log: VBoxContainer    # the chat's lines (_log) and decks (_append_deck)
+var _chat_scroll: ScrollContainer
 var _chat_edit: LineEdit
 var _chips: HBoxContainer
 var _refresh_at := 0
@@ -49,6 +54,8 @@ var _loading := false
 var _toasts: VBoxContainer
 var _profile: Control = null
 var _last_rows: Array = []      # the rows of the last answer (for the avatars that come later)
+var _picking := false           # the chat tab shows the list of own decks to send («Колода»)
+var _fans := {}                 # "<height>:<card ids>" -> the fan picture of a deck (_fan_texture)
 
 
 func setup(main) -> void:
@@ -242,6 +249,7 @@ func hide_panel() -> void:
 	if not _shown:
 		return
 	_shown = false
+	_picking = false
 	social.read("-")
 	var tw := create_tween()
 	tw.tween_property(_panel, "position:x", size.x + 12.0, 0.18)
@@ -259,6 +267,8 @@ func is_open() -> bool:
 
 
 func _show_tab(tab: String) -> void:
+	if tab != "chat":
+		_picking = false
 	_tab = tab
 	_built_up = social.link_up
 	_built_in = m.account.logged_in()
@@ -578,23 +588,24 @@ func _chat_tab() -> void:
 	_refresh_chips()
 	if _channel == Social.COMMON and _offline_body():
 		return
+	if _picking:
+		_deck_picker()
+		return
 	var log_panel := PanelContainer.new()
 	log_panel.add_theme_stylebox_override("panel", WoodUI.inset(7, 12, 8))
 	log_panel.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	_body.add_child(log_panel)
-	_chat_log = RichTextLabel.new()
-	_chat_log.bbcode_enabled = true
-	_chat_log.scroll_following = true
-	_chat_log.selection_enabled = true
-	_chat_log.add_theme_font_override("normal_font", WoodUI.REGULAR)
-	_chat_log.add_theme_font_override("bold_font", WoodUI.BOLD)
-	_chat_log.add_theme_font_size_override("normal_font_size", WoodUI.fs(21))
-	_chat_log.add_theme_font_size_override("bold_font_size", WoodUI.fs(21))
-	_chat_log.add_theme_color_override("default_color", Color(0.95, 0.92, 0.86))
-	log_panel.add_child(_chat_log)
+	# The log: runs of text lines (one RichTextLabel each) and, between them, the decks sent (a box each).
+	_chat_scroll = ScrollContainer.new()
+	_chat_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	log_panel.add_child(_chat_scroll)
+	_chat_log = VBoxContainer.new()
+	_chat_log.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_chat_log.add_theme_constant_override("separation", 6)
+	_chat_scroll.add_child(_chat_log)
 	var lines: Array = social.chats.get(_channel, [])
 	if lines.is_empty():
-		_chat_log.append_text("[color=#b8ad9a]%s[/color]\n" % ("Сообщений пока нет" if _channel != Social.GAME else "Здесь чат с соперником"))
+		_log("[color=#b8ad9a]%s[/color]" % ("Сообщений пока нет" if _channel != Social.GAME else "Здесь чат с соперником"))
 	for msg: Dictionary in lines:
 		_append(msg)
 	social.read(_channel)
@@ -614,6 +625,12 @@ func _chat_tab() -> void:
 	_chat_edit.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	WoodUI.edit(_chat_edit, 22)
 	row.add_child(_chat_edit)
+	var share := WoodUI.button("Колода", WoodUI.ORANGE, 22, Vector2(0, 54))
+	share.tooltip_text = "Поделиться своей колодой"
+	share.pressed.connect(func():
+		_picking = true
+		_show_tab("chat"))
+	row.add_child(share)
 	var send := WoodUI.button("Отправить", UI.GREEN, 22, Vector2(0, 54))
 	row.add_child(send)
 	send.pressed.connect(func(): _send(_chat_edit.text))
@@ -650,6 +667,7 @@ func _refresh_chips() -> void:
 		_set_badge(badge, 0 if ch == _channel else int(social.unread.get(ch, 0)))
 		b.pressed.connect(func():
 			_channel = ch
+			_picking = false
 			_show_tab("chat"))
 		_chips.add_child(b)
 
@@ -660,11 +678,11 @@ func _send(text: String) -> void:
 		return
 	if _channel == Social.GAME:
 		if not m.game_chat_on():
-			_chat_log.append_text("[color=#ff8a80]Матч закончился[/color]\n")
+			_log("[color=#ff8a80]Матч закончился[/color]")
 			return
 		m.send_game_chat(text)
 	elif not social.link_up:
-		_chat_log.append_text("[color=#ff8a80]Нет связи с сервером[/color]\n")
+		_log("[color=#ff8a80]Нет связи с сервером[/color]")
 		return
 	else:
 		social.say(_channel, text)
@@ -679,11 +697,221 @@ func _append(msg: Dictionary) -> void:
 		return
 	var text := String(msg.get("text", "")).replace("[", "[lb]")
 	if msg.get("sys", false):
-		_chat_log.append_text("[color=#9fe7ff]%s[/color]\n" % text)
+		_log("[color=#9fe7ff]%s[/color]" % text)
 		return
 	var nick := String(msg.get("nick", ""))
 	var color := NickStyle.color_of(String(msg.get("col", "")), GOLD if msg.get("me", false) else AvatarView.nick_color(nick).lightened(0.35))
-	_chat_log.append_text("[b][color=#%s]%s[/color][/b]  %s\n" % [color.to_html(false), nick.replace("[", "[lb]"), text])
+	var deck := DeckShare.decode(String(msg.get("text", "")))
+	if not deck.is_empty():
+		_log("[b][color=#%s]%s[/color][/b]  [color=#b8ad9a]делится колодой[/color]" % [color.to_html(false), nick.replace("[", "[lb]")])
+		_append_deck(deck)
+		return
+	_log("[b][color=#%s]%s[/color][/b]  %s" % [color.to_html(false), nick.replace("[", "[lb]"), text])
+
+
+## A line of the chat log (bbcode): it joins the run of text after the last deck, or starts one.
+func _log(bbcode: String) -> void:
+	if _chat_log == null or not is_instance_valid(_chat_log):
+		return
+	var run: RichTextLabel = null
+	if _chat_log.get_child_count() > 0 and _chat_log.get_child(-1) is RichTextLabel:
+		run = _chat_log.get_child(-1)
+		run.append_text("\n")
+	else:
+		run = RichTextLabel.new()
+		run.bbcode_enabled = true
+		run.fit_content = true
+		run.scroll_active = false
+		run.selection_enabled = true
+		run.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		run.add_theme_font_override("normal_font", WoodUI.REGULAR)
+		run.add_theme_font_override("bold_font", WoodUI.BOLD)
+		run.add_theme_font_size_override("normal_font_size", WoodUI.fs(21))
+		run.add_theme_font_size_override("bold_font_size", WoodUI.fs(21))
+		run.add_theme_color_override("default_color", Color(0.95, 0.92, 0.86))
+		_chat_log.add_child(run)
+	run.append_text(bbcode)
+	_scroll_down()
+
+
+## The log shows its newest line (as the chat always did).
+func _scroll_down() -> void:
+	if _chat_scroll == null or not is_instance_valid(_chat_scroll):
+		return
+	await get_tree().process_frame
+	if is_instance_valid(_chat_scroll):
+		_chat_scroll.scroll_vertical = int(_chat_scroll.get_v_scroll_bar().max_value)
+
+
+## A deck in the chat: a box in the look of the window (felt, an ink outline, round corners) with
+## the fan of its dearest cards at the left, in the middle of the box's height, and at the right its
+## name, hero, size and lands, and the button that adds it to the own decks.
+func _append_deck(deck: Dictionary) -> void:
+	var cards: Dictionary = deck["deck"]
+	var box := PanelContainer.new()
+	var sb := WoodUI.paper(WoodUI.FELT.darkened(0.08), 0.0, _chat_log.get_child_count() * 7, 2.5)
+	sb.radius = 14.0
+	sb.content_margin_left = 12
+	sb.content_margin_right = 14
+	sb.content_margin_top = 10
+	sb.content_margin_bottom = 10
+	box.add_theme_stylebox_override("panel", sb)
+	box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	var h := HBoxContainer.new()
+	h.add_theme_constant_override("separation", 14)
+	box.add_child(h)
+	var top := DeckShare.top_cards(cards)
+	var fan := _fan_texture(top, int(DECK_PIC_H * WoodUI.font_scale))
+	if fan != null:
+		var pic := TextureRect.new()
+		pic.texture = fan
+		pic.stretch_mode = TextureRect.STRETCH_KEEP_CENTERED
+		pic.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		pic.tooltip_text = ", ".join(PackedStringArray(top.map(func(id): return String(CardDB.get_def(id)["name"]))))
+		h.add_child(pic)
+	var v := VBoxContainer.new()
+	v.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	v.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	v.add_theme_constant_override("separation", 4)
+	h.add_child(v)
+	var title := WoodUI.label(String(deck["name"]), 22, GOLD, 4)
+	title.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	v.add_child(title)
+	var facts := "%d карт" % DeckShare.total(cards)
+	if deck.has("hero"):
+		facts = String(CardDB.hero_card(deck["hero"]).get("name", "")) + " · " + facts
+	var lands := []
+	for t: String in deck["lands"]:
+		if not lands.has(t):
+			lands.append(t)
+	facts += " · " + ", ".join(PackedStringArray(lands.map(func(t): return CardDB.land_name(t))))
+	var note := ""
+	var note_color := Color(0.95, 0.92, 0.86)
+	if int(deck["unknown"]) > 0:
+		note = "Незнакомых карт: %d, обнови игру" % int(deck["unknown"])
+		note_color = RED
+	elif not CardDB.deck_errors(deck["lands"], cards).is_empty():
+		note = "Черновик: нарушает правила колоды"
+	for line: Array in [[facts, Color(0.95, 0.92, 0.86)], [note, note_color]]:
+		if String(line[0]) == "":
+			continue
+		var l := WoodUI.label(line[0], 19, line[1], 0, UI.UI_FONT)
+		l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		v.add_child(l)
+	var take := WoodUI.button("Забрать колоду", WoodUI.GO, 20, Vector2(0, 46))
+	take.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
+	take.pressed.connect(func(): _take_deck(deck))
+	v.add_child(take)
+	_chat_log.add_child(box)
+	_scroll_down()
+
+
+## The deck's dearest cards as a fan in one picture: the first one whole in front, the second
+## behind it showing half of itself, the third behind that showing a third; the cards behind are
+## a little smaller and the ones in front cast a shadow on them. null when no card has a picture.
+func _fan_texture(ids: Array, h: int) -> Texture2D:
+	var key := "%d:%s" % [h, ",".join(PackedStringArray(ids))]
+	if _fans.has(key):
+		return _fans[key]
+	var pics := []      # front first: [Image, scale]
+	var scales := [1.0, 0.92, 0.84]
+	for id: String in ids:
+		var path := CardDB.card_thumb(id)
+		var tex: Texture2D = load(path) if ResourceLoader.exists(path) else null
+		if tex == null:
+			continue
+		var img := tex.get_image()
+		if img == null:
+			continue
+		if img.is_compressed():
+			img.decompress()
+		img.convert(Image.FORMAT_RGBA8)
+		var ch := int(round(h * scales[pics.size()]))
+		img.resize(maxi(1, int(round(ch * float(img.get_width()) / img.get_height()))), ch, Image.INTERPOLATE_LANCZOS)
+		pics.append(img)
+	if pics.is_empty():
+		return null
+	# Where each card's left edge goes: one behind shows SHOW[i] of its width past the one in front.
+	const SHOW := [1.0, 0.5, 1.0 / 3.0]
+	var xs := [0]
+	var right: int = pics[0].get_width()
+	for i in range(1, pics.size()):
+		var w: int = pics[i].get_width()
+		right += int(round(w * SHOW[i]))
+		xs.append(right - w)
+	var canvas := Image.create_empty(right, h, false, Image.FORMAT_RGBA8)
+	for i in range(pics.size() - 1, -1, -1):
+		var img: Image = pics[i]
+		var y: int = (h - img.get_height()) / 2
+		canvas.blend_rect(img, Rect2i(Vector2i.ZERO, img.get_size()), Vector2i(xs[i], y))
+		if i > 0:
+			# The card in front casts a soft shadow on this one, along its own right edge.
+			var edge: int = xs[i - 1] + pics[i - 1].get_width()
+			var shade := Image.create_empty(1, img.get_height(), false, Image.FORMAT_RGBA8)
+			for k in 8:
+				shade.fill(Color(0, 0, 0, 0.5 * (1.0 - k / 8.0)))
+				canvas.blend_rect(shade, Rect2i(0, 0, 1, img.get_height()), Vector2i(edge + k, y))
+	var out := ImageTexture.create_from_image(canvas)
+	_fans[key] = out
+	return out
+
+
+## Adds a deck from the chat to the own decks (the deck builder's «Колоды»).
+func _take_deck(deck: Dictionary) -> void:
+	if (deck["deck"] as Dictionary).is_empty():
+		toast("В этой колоде нет знакомых карт, обнови игру", [], 4.0)
+		return
+	var entry := {"name": deck["name"], "lands": deck["lands"], "deck": deck["deck"]}
+	if deck.has("hero"):
+		entry["hero"] = deck["hero"]
+	var saved := CustomDecks.add(entry)
+	if saved == "":
+		toast("Не получилось сохранить колоду", [], 4.0)
+		return
+	UI.sfx("coin")
+	toast("Колода «%s» в твоих колодах (Конструктор колод → Колоды)" % saved, [], 5.0, "deck_taken")
+
+
+## «Колода»: the own decks to send into the open channel; one press sends it.
+func _deck_picker() -> void:
+	_body.add_child(_line("Какой колодой поделиться?", GOLD, 24))
+	var scroll := ScrollContainer.new()
+	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	_body.add_child(scroll)
+	var list := VBoxContainer.new()
+	list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	list.add_theme_constant_override("separation", 8)
+	scroll.add_child(list)
+	var entries := CustomDecks.load_all()
+	if entries.is_empty():
+		list.add_child(_line("Своих колод пока нет. Собери колоду в «Конструкторе колод» и сохрани её"))
+	for e: Dictionary in entries:
+		var deck_name := String(e.get("name", "?"))
+		var draft := not CardDB.has_hero(CustomDecks.code_of(e))
+		var b := WoodUI.tab(deck_name + (" · черновик" if draft else ""), 22, Vector2(0, 56))
+		WoodUI.set_tab(b, true)
+		b.alignment = HORIZONTAL_ALIGNMENT_LEFT
+		b.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+		b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		b.pressed.connect(func(): _share_deck(e))
+		list.add_child(b)
+	var back := WoodUI.button("Назад", WoodUI.BACK, 22, Vector2(200, 54))
+	back.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	back.pressed.connect(func():
+		_picking = false
+		_show_tab("chat"))
+	_body.add_child(back)
+
+
+func _share_deck(e: Dictionary) -> void:
+	var text := DeckShare.encode(e)
+	if text == "":
+		toast("Колода не помещается в одно сообщение: слишком много разных карт", [], 5.0)
+		return
+	_picking = false
+	_show_tab("chat")
+	_send(text)
 
 
 func _on_message(ch: String, msg: Dictionary) -> void:
@@ -699,6 +927,8 @@ func _on_message(ch: String, msg: Dictionary) -> void:
 	# The match's messages and private ones come as a note while the chat is not looked at.
 	var who := String(msg.get("nick", ""))
 	var head := who if ch == Social.GAME else "%s пишет" % who
+	if DeckShare.is_deck(String(msg.get("text", ""))):
+		return      # a deck waits in the chat (its unread mark shows it): no note over the screen
 	toast("%s: %s" % [head, String(msg.get("text", ""))], [["Ответить", UI.BLUE, func(): open_chat(ch)]], 6.0, "chat:" + ch)
 
 
@@ -978,7 +1208,9 @@ func _on_styled(nick: String, _style: Dictionary) -> void:
 	if _tab != "chat":
 		_refresh_at = 0
 	elif _chat_log != null and is_instance_valid(_chat_log):
-		_chat_log.clear()
+		for c in _chat_log.get_children():
+			_chat_log.remove_child(c)
+			c.queue_free()
 		for msg: Dictionary in social.chats.get(_channel, []):
 			_append(msg)
 
