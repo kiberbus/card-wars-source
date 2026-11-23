@@ -331,6 +331,44 @@ static func copy_button(color: Color, side := 64) -> Button:
 	return b
 
 
+## The «watch» button: no text, a paper eye (a friend's row: watch their match).
+static func eye_button(color: Color, side := 54) -> Button:
+	var k := font_scale
+	var b := button("", color, 26, Vector2(side, side) * k)
+	b.custom_minimum_size = b.custom_minimum_size.max(Vector2(side, side) * k)
+	var icon := Control.new()
+	icon.set_anchors_preset(Control.PRESET_FULL_RECT)
+	icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	icon.draw.connect(func(): draw_eye(icon))
+	icon.resized.connect(icon.queue_redraw)
+	b.add_child(icon)
+	return b
+
+
+## The paper eye of eye_button, in the middle of `ci` (a Control); `alpha` < 1: a faint stamp.
+static func draw_eye(ci: Control, alpha := 1.0) -> void:
+	var u := minf(ci.size.x, ci.size.y) / 64.0
+	var c := ci.size * 0.5
+	var w := 22.0 * u       # half the width of the eye
+	var h := 13.0 * u       # half its height
+	var n := 16
+	var pts := PackedVector2Array()
+	for i in n + 1:         # the upper lid, left to right
+		var t := float(i) / n
+		pts.append(c + Vector2(-w + 2.0 * w * t, -h * sin(PI * t)))
+	for i in range(n - 1, 0, -1):   # the lower lid, back
+		var t := float(i) / n
+		pts.append(c + Vector2(-w + 2.0 * w * t, h * sin(PI * t)))
+	var outline := pts.duplicate()
+	outline.append(pts[0])
+	var paper := Color(PAPER, alpha)
+	var ink := Color(INK, alpha)
+	ci.draw_colored_polygon(pts, paper)
+	ci.draw_polyline(outline, ink, 3.0 * u, true)
+	ci.draw_circle(c, 8.0 * u, ink, true, -1.0, true)
+	ci.draw_circle(c + Vector2(-2.5, -2.5) * u, 2.5 * u, paper, true, -1.0, true)
+
+
 ## A step tab: paper, light when it is the current step.
 static func tab(s: String, size := 26, min_size := Vector2(210, 52)) -> Button:
 	var b := button(s, PAPER, size, min_size)

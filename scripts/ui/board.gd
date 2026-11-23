@@ -149,6 +149,12 @@ var seated := false              # more than two seats (2 на 2, на трои�
 var _duel_layout: Array = []     # [control, position, size] of the playmat table, kept while the round one is up
 var viewer := 0
 var hide_hands := false
+var replay_closed := false      # «Наблюдать»: a match watched live, both hands face down
+var seat_nicks: Array = []      # «Наблюдать»: the players' nicks by seat, on the hero panels instead of the heroes' names
+var _spectators: Array = []     # our match online: the nicks of those who watch it (set_spectators)
+var _spec_button: Button = null
+var _spec_list: PanelContainer = null
+const SPEC_ROWS := 6            # the watchers' list shows this many nicks; more are scrolled
 var views: Dictionary = {}
 
 var world: Node2D
@@ -405,6 +411,8 @@ func enable_replay(steps: Array, seat: int, pos := 0) -> void:
 	local_player = -1
 	viewer = seat
 	hide_hands = false
+	replay_closed = false
+	seat_nicks = []
 	for key in hero_ui:
 		hero_ui[key]["side"] = -1
 	sync()
@@ -662,6 +670,91 @@ func set_foe(nick: String, can_add: bool) -> void:
 func show_chat_button(on: bool) -> void:
 	chat_button.visible = on
 	_update_hud()
+
+
+## The top left corner of our match online: how many watch it; pressed, their nicks under it.
+func _build_spectators() -> void:
+	var side := 76.0 if Phone.active else 60.0
+	_spec_button = WoodUI.button_fixed("", UI.BLUE, 30 if Phone.active else 26, Vector2(side, side))
+	_spec_button.position = Vector2(24, 20)
+	_spec_button.tooltip_text = "Зрители"
+	_spec_button.visible = false
+	# A faint eye under the number, like a weak stamp; the number stays sharp over it.
+	var stamp := Control.new()
+	stamp.set_anchors_preset(Control.PRESET_FULL_RECT)
+	stamp.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	stamp.draw.connect(func(): WoodUI.draw_eye(stamp, 0.3))
+	stamp.resized.connect(stamp.queue_redraw)
+	_spec_button.add_child(stamp)
+	var count := WoodUI.label_fixed("", 30 if Phone.active else 28, Color.WHITE, 6)
+	count.name = "Count"
+	count.set_anchors_preset(Control.PRESET_FULL_RECT)
+	count.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	count.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	count.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_spec_button.add_child(count)
+	_spec_button.pressed.connect(func():
+		_spec_list.visible = not _spec_list.visible)
+	hud.add_child(_spec_button)
+	_spec_list = PanelContainer.new()
+	_spec_list.add_theme_stylebox_override("panel", WoodUI.plate(UI.BLUE, 3, 7, 14))
+	_spec_list.position = Vector2(24, 20 + side + 8)
+	_spec_list.visible = false
+	_spec_list.mouse_filter = Control.MOUSE_FILTER_STOP     # closed by the counter again: a long list is scrolled
+	var pad := MarginContainer.new()     # the text off the plate's edge
+	for side_name in ["left", "right"]:
+		pad.add_theme_constant_override("margin_" + side_name, 14)
+	for side_name in ["top", "bottom"]:
+		pad.add_theme_constant_override("margin_" + side_name, 8)
+	pad.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_spec_list.add_child(pad)
+	var box := VBoxContainer.new()
+	box.add_theme_constant_override("separation", 2)
+	pad.add_child(box)
+	box.add_child(WoodUI.label_fixed("Смотрят:", 24 if Phone.active else 18, Color(1.0, 0.84, 0.35), 4, UI.UI_FONT))
+	var scroll := ScrollContainer.new()     # more than SPEC_ROWS nicks: scrolled, like the log
+	scroll.name = "Scroll"
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	box.add_child(scroll)
+	var nicks := VBoxContainer.new()
+	nicks.name = "Nicks"
+	nicks.add_theme_constant_override("separation", 2)
+	nicks.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	scroll.add_child(nicks)
+	hud.add_child(_spec_list)
+
+
+## Those who watch our match now (main.gd): none hides the corner.
+func set_spectators(nicks: Array) -> void:
+	_spectators = nicks.duplicate()
+	if _spec_button == null:
+		return
+	_spec_button.visible = not _spectators.is_empty()
+	_spec_button.get_node("Count").text = str(_spectators.size())
+	if _spectators.is_empty():
+		_spec_list.visible = false
+	var scroll: ScrollContainer = _spec_list.find_child("Scroll", true, false)
+	var box: VBoxContainer = scroll.get_node("Nicks")
+	for c in box.get_children():
+		box.remove_child(c)
+		c.queue_free()
+	var row := 0.0
+	var wide := 120.0
+	for nick in _spectators:
+		var l := WoodUI.label_fixed(String(nick), 30 if Phone.active else 22, UI.CREAM, 5)
+		box.add_child(l)
+		row = l.get_combined_minimum_size().y
+		wide = maxf(wide, l.get_combined_minimum_size().x)
+	# Up to SPEC_ROWS nicks the plate fits them all; more scroll inside the same height.
+	var shown := mini(_spectators.size(), SPEC_ROWS)
+	var bar := 14.0 if _spectators.size() > SPEC_ROWS else 0.0
+	scroll.custom_minimum_size = Vector2(minf(wide, 300.0 if Phone.active else 260.0) + bar, shown * row + maxi(shown - 1, 0) * 2)
+	scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_AUTO if _spectators.size() > SPEC_ROWS else ScrollContainer.SCROLL_MODE_DISABLED
+	_spec_list.reset_size()
+
+
+func spectators() -> Array:
+	return _spectators
 
 
 func set_chat_unread(n: int) -> void:
@@ -1274,6 +1367,7 @@ func _build_hud() -> void:
 			bubble.draw_string(WoodUI.BOLD, Vector2(35, 15), str(mini(_chat_unread, 9)), HORIZONTAL_ALIGNMENT_CENTER, 18, 16, Color.WHITE))
 	chat_button.add_child(bubble)
 	hud.add_child(chat_button)
+	_build_spectators()
 	phase_label = WoodUI.label_fixed("", 18, UI.CREAM, 6, UI.UI_FONT)
 	phase_label.position = Vector2(HUD_X + 2, 296)
 	phase_label.size = Vector2(HUD_W, 26)
@@ -1691,7 +1785,8 @@ func sync() -> void:
 			seen[c.uid] = true
 			var mate: bool = teams and side != viewer and not game.is_foe(viewer, side)
 			var show: bool = ((bottom and (_plays(side) or _watching())) or mate or replay_steps != null \
-				or sandbox != null or game.train.hand_shown(viewer, side)) and not hide_hands
+				or sandbox != null or game.train.hand_shown(viewer, side)) and not hide_hands \
+				and not replay_closed
 			v.set_face_up(show)
 			v.set_secret(false)
 			v.set_upgraded(c.upgraded)
@@ -1706,7 +1801,7 @@ func sync() -> void:
 				v.target_scale = 0.38 if teams else P_S_HAND
 			v.z_index = 30 + i
 			v.lift = 0.3
-			if (replay_steps != null or sandbox != null) and not teams and not bottom:
+			if ((replay_steps != null and not replay_closed) or sandbox != null) and not teams and not bottom:
 				# A replay shows the other hand too: upright, so it can be read.
 				lay = _open_hand_layout(i, n)
 				v.target_pos = lay[0]
@@ -2071,6 +2166,8 @@ func _update_hud() -> void:
 			var room := HUD_W - 170.0
 			if key == "top" and _foe_nick != "":
 				ui["name"].text = _foe_nick
+			if side < seat_nicks.size() and String(seat_nicks[side]) != "":
+				ui["name"].text = String(seat_nicks[side])     # watched live: who plays, not the hero
 			if _ph:
 				_fit_font(ui["name"], 186.0, 34, P_FONT)
 			else:

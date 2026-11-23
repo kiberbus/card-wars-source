@@ -563,6 +563,8 @@ func _on_net_message(d: Dictionary) -> void:
 			if d.get("nick") is String:
 				m._remote_nick = _clean_nick(d["nick"])
 				_match_lines()
+		"specs":
+			m.friend_cast.remote_spectators(d.get("nicks"))     # who watches the match, told the other player
 		"ready":
 			if not m.net.is_host and m.game == null:
 				_remote_ready = true
@@ -892,6 +894,7 @@ func start_net_game(seed_value: int, first: int, my_seat: int, heroes: Array, ti
 		# The room's watchers get the game (Net streams the journal to the room server).
 		var head := Replay.from_game(m.game, "net", 0, Main.version_text())
 		head.erase("steps")
+		head["nicks"] = m.match_nicks(0)
 		m.net.spec_follow(m.game, head)
 	m.hero_select.close_net()
 	m._new_board()

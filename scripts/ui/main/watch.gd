@@ -3,7 +3,8 @@ extends RefCounted
 ## (the host's lobby shows it, a tournament's bot gives it). The host's game comes through Net
 ## (scripts/net/net.gd, relay_server.gd «Spectators»): its head, then its journal as it grows.
 ## The table plays it as a replay that keeps waiting for the next steps (board.gd live_replay):
-## both hands open, «Смотреть за» changes sides at any time. A watcher who comes in the middle
+## both hands face down, the players' nicks on the hero panels, «Смотреть за» changes sides at
+## any time; the players are told who watches (Social.WATCH_ON, their counter). A watcher who comes in the middle
 ## of a match gets the game played up to the last steps at once, then watches from there.
 
 const Main = preload("res://scripts/ui/main.gd")
@@ -12,6 +13,7 @@ const Replay = preload("res://scripts/core/replay.gd")
 const UI = preload("res://scripts/ui/ui_kit.gd")
 const WoodUI = preload("res://scripts/ui/wood_ui.gd")
 const FitCenter = preload("res://scripts/ui/fit_center.gd")
+const Social = preload("res://scripts/net/social.gd")
 ## The first steps of a game come in a few messages right after its head: the table is set this much later.
 const CATCH_UP_SEC := 0.5
 
@@ -22,10 +24,12 @@ var g := 0                      # its id from the host
 var view := 0                   # the side the table shows, kept from game to game
 var _root: Control = null       # the window with the code
 var _status: Label = null
+var _edit: LineEdit = null
 var _end_root: Control = null   # the game is over
 var _link_root: Control = null  # the link to the server is lost
 var _switching := false         # main's _end_game while the next game is set: watching goes on
 var _retry_token := 0
+var _told: Array = []           # the players told we watch (Social.WATCH_ON): told WATCH_OFF when we stop
 
 
 func _init(main: Main) -> void:
@@ -51,6 +55,7 @@ func show_watch() -> void:
 	v.add_child(m._title("Наблюдать"))
 	v.add_child(WoodUI.label("Код наблюдателя:", 24, UI.CREAM, 5, UI.UI_FONT))
 	var edit := LineEdit.new()
+	_edit = edit
 	edit.placeholder_text = "ABCDEF"
 	edit.max_length = 8
 	edit.alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -82,12 +87,21 @@ func _close_window() -> void:
 		m._close_overlay(_root)
 	_root = null
 	_status = null
+	_edit = null
 
 
 func _set_status(text: String, color := Color.WHITE) -> void:
 	if _status != null and is_instance_valid(_status):
 		_status.text = text
 		_status.label_settings.font_color = color
+
+
+## The window with this code already in it, connecting (a friend's match, the eye on their row).
+func watch_code(code: String) -> void:
+	show_watch()
+	if _edit != null and is_instance_valid(_edit):
+		_edit.text = code
+	_start(code)
 
 
 func _start(text: String) -> void:
@@ -113,6 +127,9 @@ func stop() -> void:
 	_retry_token += 1
 	data = null
 	g = 0
+	for nick in _told:
+		m.social.say(nick, Social.WATCH_OFF)
+	_told = []
 	m.net.close()
 	_close_link()
 	if _end_root != null and is_instance_valid(_end_root):
@@ -205,12 +222,48 @@ func _begin(d: Dictionary) -> void:
 	m.game = game
 	m._new_board()
 	view = clampi(view, 0, game.players.size() - 1)
+	var own = d.get("own")      # a friend's match (friend_cast.gd): seen from their side
+	if own is float:
+		own = int(own)
+	if own is int and own >= 0 and own < game.players.size():
+		view = own
 	m.board.enable_replay(steps, view, pos)
+	m.board.replay_closed = true        # watchers never see the hands: no hints to a player
+	m.board.seat_nicks = nicks_of(d)
+	for key in m.board.hero_ui:
+		m.board.hero_ui[key]["side"] = -1
+	m.board.sync()
+	_tell_players(m.board.seat_nicks)
+	m.board.show_chat_button(true)      # the friends panel: the chat, another match to watch
+	m.board.set_chat_unread(m.social.unread_total())
 	m.board.live_replay = true
 	m.board.replay_ended.connect(_on_ended)
 	m.board.replay_seek.connect(_on_seek)
 	m.board._update_hud()
 	m.board.start_replay()
+
+
+## The players of the match learn we watch it (each new game of the room again: a new table of
+## theirs starts its counter from what friend_cast.gd keeps). Only friends can be told.
+func _tell_players(nicks: Array) -> void:
+	if not m.account.logged_in():
+		return
+	for nick in nicks:
+		if nick != "" and nick != m.account.nick:
+			m.social.say(nick, Social.WATCH_ON)
+			if not _told.has(nick):
+				_told.append(nick)
+
+
+## The players' nicks of a watched match's head ("nicks", by seat; "" where unknown).
+static func nicks_of(d: Dictionary) -> Array:
+	var out := []
+	var nicks = d.get("nicks")
+	var heroes: Array = d.get("heroes", [])
+	for i in heroes.size():
+		var n = nicks[i] if nicks is Array and i < nicks.size() else ""
+		out.append(String(n).substr(0, 24) if n is String else "")
+	return out
 
 
 ## A step taken back: the game is set again at `pos` steps, the table goes on from there.
