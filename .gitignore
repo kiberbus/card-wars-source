@@ -11,6 +11,9 @@ export_presets.cfg
 # Pictures, music and sounds come from an installed game (README)
 /assets/*
 !/assets/fonts/
+!/assets/tutorial/
+!/assets/tutorial/characters/
+!/assets/tutorial/characters/*.png
 /card_backs/
 /icon/
 game_path.txt

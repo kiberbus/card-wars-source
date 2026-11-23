@@ -69,6 +69,7 @@ var first_player := 0
 var turn_number := 0
 ## setup → main → attack → handoff → main ... → over
 var phase := "setup"
+var _tutorial_skip_first_draw := false
 var winner := -1
 var rng := RandomNumberGenerator.new()
 var log_lines: Array = []
@@ -207,7 +208,8 @@ func _hero_event(p: int, event: String, args: Array = []) -> void:
 
 ## heroes: one pick per seat, "deck" or "deck@hero card" (CardDB.loadout). Four picks
 ## make a 2 на 2 game (seats 0 and 2 are a team, 1 and 3 the other), three a game на троих.
-func setup(heroes: Array, first: int, seed_value: int = -1) -> void:
+func setup(heroes: Array, first: int, seed_value: int = -1, shuffle_decks := true) -> void:
+	_tutorial_skip_first_draw = false
 	if seed_value < 0:
 		seed_value = randi() & 0x7fffffff
 	rng.seed = seed_value
@@ -217,7 +219,7 @@ func setup(heroes: Array, first: int, seed_value: int = -1) -> void:
 	_next_uid = 1
 	var seats := mini(heroes.size(), 4) if heroes.size() >= 3 else 2
 	for i in seats:
-		players.append(_new_player(i, heroes[i]))
+		players.append(_new_player(i, heroes[i], shuffle_decks))
 	for i in range(1, seats):
 		var n := 1
 		var base: String = players[i].name
@@ -238,9 +240,65 @@ func setup(heroes: Array, first: int, seed_value: int = -1) -> void:
 				players[i].hand.append(players[i].deck.pop_back())
 
 
-## Player i with the deck of `pick` ("deck" or "deck@hero card"): shuffled deck, lands in the
-## order of the deck, no starting hand yet.
-func _new_player(i: int, pick: String) -> PlayerState:
+## Reorders the ordinary Finn and Jake decks for the Basic Tutorial without creating
+## cards outside either deck or changing their ownership/UIDs.
+func configure_basic_tutorial() -> bool:
+	if players.size() != 2 or players[0].hero != "finn" or players[1].hero != "jake":
+		return false
+	var opening_hands := [
+		["blood_fortress", "ancient_scholar", "cool_dog", "spirit_soldier", "struzann_jinn"],
+		["evil_eye", "archer_dan", "celestial_castle", "wall_of_ears", "corn_dog"],
+	]
+	var forced_draws := [
+		["gnome_snot", "nice_ice_baby", "the_pig", "teleport", "psionic_architect"],
+		["husker_knight"],
+	]
+	var first_turn_draws := [[], ["big_foot"]]
+	for p in 2:
+		var ps: PlayerState = players[p]
+		var available: Array = []
+		available.append_array(ps.hand)
+		available.append_array(ps.deck)
+		var hand: Array = []
+		for id: String in opening_hands[p]:
+			var c: CardInst = _take_tutorial_card(available, id)
+			if c == null:
+				return false
+			hand.append(c)
+		var draws: Array = []
+		for id: String in forced_draws[p]:
+			var draw_card: CardInst = _take_tutorial_card(available, id)
+			if draw_card == null:
+				return false
+			draws.append(draw_card)
+		for id: String in first_turn_draws[p]:
+			var draw_card: CardInst = _take_tutorial_card(available, id)
+			if draw_card == null:
+				return false
+			draws.push_front(draw_card)
+		ps.hand.clear()
+		ps.hand.append_array(hand)
+		ps.deck.clear()
+		ps.deck.append_array(available)
+		draws.reverse()
+		ps.deck.append_array(draws)
+		ps.mulligan_used = true
+	_tutorial_skip_first_draw = true
+	return true
+
+
+func _take_tutorial_card(available: Array, id: String) -> CardInst:
+	for i in available.size():
+		var c: CardInst = available[i]
+		if c.id == id:
+			available.remove_at(i)
+			return c
+	return null
+
+
+## Player i with the deck of `pick` ("deck" or "deck@hero card"): optionally shuffled deck,
+## lands in the order of the deck, no starting hand yet.
+func _new_player(i: int, pick: String, shuffle_deck := true) -> PlayerState:
 	var h := CardDB.hero(CardDB.loadout_deck(pick))
 	var ps := PlayerState.new()
 	ps.index = i
@@ -260,7 +318,8 @@ func _new_player(i: int, pick: String) -> PlayerState:
 	for id: String in h["deck"]:
 		for n in int(h["deck"][id]):
 			ps.deck.append(_make_card(id, i))
-	_shuffle(ps.deck)
+	if shuffle_deck:
+		_shuffle(ps.deck)
 	return ps
 
 
@@ -2016,6 +2075,7 @@ func _start_turn(p: int) -> void:
 	await _start_effects(p)
 	if phase == "over":
 		return
+	var skipped_tutorial_draw := false
 	if train.active:
 		await train.turn_start(p)
 		if phase == "over":
@@ -2023,8 +2083,13 @@ func _start_turn(p: int) -> void:
 		if await train.turn_draw(p, _turn_draws.bind(p)) and phase == "over":
 			return
 	else:
-		await _turn_draws(p)
-	await _trigger_own(p, "after_draw_")
+		skipped_tutorial_draw = _tutorial_skip_first_draw and p == first_player and turn_number == 1
+		if skipped_tutorial_draw:
+			_tutorial_skip_first_draw = false
+		else:
+			await _turn_draws(p)
+	if not skipped_tutorial_draw:
+		await _trigger_own(p, "after_draw_")
 	if phase == "over":
 		return
 	ps.actions = actions_per_turn(p) + ps.next_actions

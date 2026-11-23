@@ -93,7 +93,6 @@ var stage: Control
 var overlay: CanvasLayer
 var menu_layer: CanvasLayer        # the main menu, over the stage and under the windows
 var board = null
-var basic_tutorial = null
 var _folder_warned := false     # the warning about a folder the game cannot update in, once a launch
 var game = null
 var title_root: Control = null
@@ -521,9 +520,9 @@ func show_title() -> void:
 	var builder := WoodUI.button("Конструктор колод", WoodUI.BLUE, 30, Vector2(bw, bh))
 	builder.pressed.connect(func(): show_deck_builder(""))
 	buttons.add_child(builder)
-	var training := WoodUI.button("Обучение", WoodUI.ORANGE, 30, Vector2(bw, bh))
-	training.pressed.connect(show_training_menu)
-	buttons.add_child(training)
+	var tutorial := WoodUI.button("Обучение", WoodUI.GOLD, 30, Vector2(bw, bh))
+	tutorial.pressed.connect(show_tutorial_menu)
+	buttons.add_child(tutorial)
 	var settings := WoodUI.button("Настройки", WoodUI.VIOLET, 30, Vector2(bw, bh))
 	settings.pressed.connect(show_settings)
 	buttons.add_child(settings)
@@ -638,8 +637,8 @@ func show_play_menu() -> void:
 	_pop_in(v)
 
 
-## «Обучение»: the basic lesson is playable; the other lessons are placeholders.
-func show_training_menu() -> void:
+## «Обучение»: the submenu of the main menu. Back leads to the main menu.
+func show_tutorial_menu() -> void:
 	if _overlay_open:
 		return
 	var root := _overlay_root(Color(0.02, 0.01, 0.05, 0.6))
@@ -650,24 +649,56 @@ func show_training_menu() -> void:
 	panel.add_theme_stylebox_override("panel", _panel_box())
 	center.add_child(panel)
 	var v := VBoxContainer.new()
-	v.add_theme_constant_override("separation", 12 if phone_layout else 18)
+	v.add_theme_constant_override("separation", 14)
 	panel.add_child(v)
-	v.add_child(_title("Обучение"))
-	var button_size := Vector2(340, Phone.TOUCH) if phone_layout else Vector2(420, 68)
-	var basic := WoodUI.button("Базовое обучение", UI.BLUE, 28, button_size)
+	var back := WoodUI.button("Назад", WoodUI.BACK, 28, Vector2(220, 62))
+	back.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	back.pressed.connect(func(): _close_overlay(root))
+	if phone_layout:
+		v.add_child(_phone_header("Обучение", back))
+	else:
+		v.add_child(_title("Обучение"))
+	var button_size := Vector2(340, Phone.TOUCH) if phone_layout else Vector2(440, 70)
+	var font_size := 28 if phone_layout else 30
+	var basic := WoodUI.button("Базовое обучение", WoodUI.GOLD, font_size, button_size)
 	basic.pressed.connect(func():
 		_close_overlay(root)
 		start_basic_tutorial())
 	v.add_child(basic)
-	for text in ["Продвинутое", "Тренажер"]:
-		var option := WoodUI.button(text, UI.BLUE, 28, button_size)
-		option.disabled = true
-		v.add_child(option)
-	var back := WoodUI.button("Назад", WoodUI.BACK, 28, Vector2(220, 62))
-	back.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-	back.pressed.connect(func(): _close_overlay(root))
-	v.add_child(back)
+	var advanced := WoodUI.button("Продвинутое обучение", UI.ORANGE, font_size, button_size)
+	advanced.disabled = true
+	v.add_child(advanced)
+	var trainer := WoodUI.button("Тренажёр", UI.ORANGE, font_size, button_size)
+	trainer.disabled = true
+	v.add_child(trainer)
+	if not phone_layout:
+		v.add_child(back)
 	_pop_in(v)
+
+
+func start_basic_tutorial() -> void:
+	_clear_title()
+	if not await _wait_ai([[_ai_levels[1], "jake"]]):
+		return
+	online = false
+	ai_mode = true
+	_ai_vs_ai_mode = false
+	seat = 0
+	_mode = "tutorial"
+	game = Game.new()
+	game.setup(["finn", "jake"], 0, 1, false)
+	if not game.configure_basic_tutorial():
+		push_error("Не удалось подготовить фиксированные колоды базового обучения.")
+		show_title()
+		return
+	game.journal = []
+	_new_board()
+	var tutorial := BasicTutorial.new()
+	board.add_child(tutorial)
+	board.enable_ai(tutorial, 1, 0)
+	tutorial.start(game, board)
+	board.set_hands_hidden(false)
+	await board.run_engine(func(): await game.start_game())
 
 
 ## The «Играть» menu goes when a game screen opens, from it or from elsewhere.
@@ -1419,29 +1450,6 @@ func start_ai_game(heroes: Array = []) -> void:
 		board.trigger_ai_turn()
 
 
-func start_basic_tutorial() -> void:
-	_clear_title()
-	if not await _wait_ai([[_ai_levels[1], "jake"]]):
-		return
-	online = false
-	ai_mode = true
-	_ai_vs_ai_mode = false
-	seat = 0
-	_mode = "tutorial"
-	var agent = _new_ai_agent(1, "jake")
-	game = Game.new()
-	game.setup(["finn", "jake"], 0, 733104)
-	BasicTutorial.configure_game(game)
-	game.journal = []
-	_new_board()
-	basic_tutorial = BasicTutorial.new()
-	board.add_child(basic_tutorial)
-	board.enable_ai(basic_tutorial, 1, 0)
-	board.set_hands_hidden(false)
-	basic_tutorial.setup(self, board, game, agent)
-	await board.run_engine(func(): await game.start_game())
-
-
 # ================================================================ 2 на 2
 
 ## 2 на 2 at this PC (the Doubles Tournament rules): seats 0 and 2 against 1 and 3, any of
@@ -1737,9 +1745,6 @@ func _on_game_over(winner: int, note := "") -> void:
 		return          # a replay ends with its own screen (_on_replay_ended)
 	_music_hold = true  # the fight music gives way to the end tune (board.gd)
 	_music_hold_until = Time.get_ticks_msec() + END_QUIET_MS
-	if _mode == "tutorial":
-		await _show_basic_tutorial_result(winner)
-		return
 	if _mode == "run":
 		_on_run_fight_over(winner)
 		return
@@ -1815,6 +1820,8 @@ func _on_game_over(winner: int, note := "") -> void:
 		t.text = "ПОБЕДИЛ ИИ %d" % (winner + 1)
 		line = "%s выигрывает! Счёт серии — ИИ 1 (%s) %d : %d ИИ 2 (%s)" % [ps.name, game.players[0].name,
 			_ai_series[0], _ai_series[1], game.players[1].name]
+	if _mode == "tutorial":
+		line += "\nПродвинутое обучение пока недоступно."
 	var s := WoodUI.label(line, 24 if phone_layout else 30, UI.hero_color(ps.hero), 8)
 	s.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	if phone_layout:
@@ -1846,6 +1853,18 @@ func _on_game_over(winner: int, note := "") -> void:
 		auto_ref["active"] = false
 		_export_replay(replay_data))
 	row.add_child(save)
+	if _mode == "tutorial":
+		again.visible = false
+		other.text = "Продвинутое обучение"
+		other.disabled = true
+		save.visible = false
+		menu.pressed.connect(func():
+			_close_overlay(root)
+			_game_over_root = null
+			_end_game()
+			show_title())
+		_pop_in(v)
+		return
 	if online:
 		# The next match can be played with another deck: the pick goes to the others.
 		other.text = "Сменить колоду"
@@ -1940,37 +1959,6 @@ func _on_game_over(winner: int, note := "") -> void:
 			countdown.text = ""
 
 
-func _show_basic_tutorial_result(winner: int) -> void:
-	await get_tree().create_timer(0.8).timeout
-	if game == null:
-		return
-	var won := winner == 0
-	var result := "Ты победил Джейка." if won else "Джейк победил. Базовое обучение завершено."
-	var root := _message_overlay("Матч завершён", result)
-	_game_over_root = root
-	var row := HBoxContainer.new()
-	row.alignment = BoxContainer.ALIGNMENT_CENTER
-	row.add_theme_constant_override("separation", 16)
-	root.get_meta("box").add_child(row)
-	var advanced := WoodUI.button("Продвинутое обучение", UI.BLUE, 24,
-			Vector2(340, Phone.TOUCH) if phone_layout else Vector2(310, 64))
-	advanced.pressed.connect(func():
-		_close_overlay(root)
-		_game_over_root = null
-		_end_game()
-		show_title()
-		show_training_menu())
-	row.add_child(advanced)
-	var menu := WoodUI.button("Главное меню", UI.PURPLE, 24,
-			Vector2(260, Phone.TOUCH) if phone_layout else Vector2(260, 64))
-	menu.pressed.connect(func():
-		_close_overlay(root)
-		_game_over_root = null
-		_end_game()
-		show_title())
-	row.add_child(menu)
-
-
 func _end_game() -> void:
 	watch.on_end_game()
 	_keep_replay()
@@ -1982,7 +1970,6 @@ func _end_game() -> void:
 	if board != null:
 		board.queue_free()
 		board = null
-	basic_tutorial = null
 	game = null
 	online = false
 	ai_mode = false

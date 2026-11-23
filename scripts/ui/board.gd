@@ -143,7 +143,6 @@ const T3_DISCARD := [Vector2(190, 900), Vector2(190, 330), Vector2(1370, 330)]
 const T3_HAND := [Vector2(780, 1045), Vector2(140, 190), Vector2(1420, 190)]
 
 var game = null
-var tutorial = null
 var teams := false               # the table round the seats: 2 на 2, на троих till a player drops out
 var tri := false                 # на троих on that table
 var seated := false              # more than two seats (2 на 2, на троих): AI and people by seat
@@ -313,6 +312,10 @@ var sb_button: Button               # shows and hides the panel
 var _sb_press := Vector2.INF        # a press on the table while the panel is open: a tap picks what is under it
 var _sb_turn := ""                  # the turn the table last turned to (the viewer follows the turn player)
 var _arrange_button: Button
+var tutorial = null
+var tutorial_land_targets: Array = []
+var tutorial_building_targets: Array = []
+var tutorial_world_targets: Array = []
 
 
 func _ready() -> void:
@@ -1820,8 +1823,6 @@ func sync() -> void:
 	_update_piles()
 	_update_hud()
 	_update_preview()
-	if tutorial != null:
-		tutorial.on_hud_event()
 	decor.queue_redraw()
 
 
@@ -2127,7 +2128,8 @@ func _update_hud() -> void:
 			else:
 				main_button.text = "В атаку!"
 		"attack":
-			main_button.text = "Атаковать всеми"
+			main_button.text = "Завершить ход" if game.attackers_left(game.turn_player).is_empty() \
+					else "Атаковать всеми"
 		_:
 			main_button.text = "…"
 	if _watching():
@@ -2167,8 +2169,6 @@ func _update_hud() -> void:
 		hero_button.disabled = false
 	if _ph:
 		_phone_hud()
-		if tutorial != null:
-			tutorial.update_board_ui()
 		return
 	_fit_button(hero_button, HUD_W, 18, 13)
 	log_panel.position.y = 578.0 if hero_button.visible else 524.0
@@ -2179,8 +2179,6 @@ func _update_hud() -> void:
 		log_panel.size.y -= 62.0
 		undo_button.visible = true
 	_update_wagon()
-	if tutorial != null:
-		tutorial.update_board_ui()
 
 
 ## A phone: the rows of the right column under the main button that come and go (_layout_column).
@@ -3494,9 +3492,6 @@ func _can_act() -> bool:
 
 
 func _click_view(v) -> void:
-	if tutorial != null and not tutorial.allow_card_click(v.uid):
-		tutorial.reject_action()
-		return
 	var w: Dictionary = game.where(v.uid)
 	var zone: String = w["zone"]
 	if zone == "hand" and w["p"] == viewer or _is_xray_top(v.uid):
@@ -3521,14 +3516,6 @@ func _click_view(v) -> void:
 
 
 func _click_empty(wpos: Vector2) -> void:
-	if tutorial != null:
-		if _selected_uid != -1:
-			var drop = _drop_target_at(wpos)
-			if drop == null or not tutorial.allow_drop(_selected_uid, drop):
-				tutorial.reject_action()
-				return
-		elif tutorial.blocks_field_click():
-			return
 	if _selected_uid == -1 and _phone_seat_zoom(wpos):
 		return
 	for side in game.sides():
@@ -3649,9 +3636,6 @@ func _drop_target_at(wpos: Vector2):
 
 
 func _begin_drag(v) -> void:
-	if tutorial != null and not tutorial.allow_card_click(v.uid):
-		tutorial.reject_action()
-		return
 	context_menu.visible = false
 	_selected_uid = v.uid
 	_drag_view = v
@@ -3680,9 +3664,6 @@ func _end_drag() -> void:
 func _play_selected(t: Dictionary) -> void:
 	var uid := _selected_uid
 	_clear_selection()
-	if tutorial != null and not tutorial.allow_drop(uid, t):
-		tutorial.reject_action()
-		return
 	_issue({"cmd": "play", "uid": uid, "lane": t["lane"]})
 
 
@@ -3712,8 +3693,6 @@ func _show_card_menu(v, zone: String, lane: int) -> void:
 		items.append([act_label, UI.BLUE, func(): _issue({"cmd": "activate", "kind": zone, "lane": lane})])
 	if zone == "creature" and game.can_attack(viewer, lane):
 		items.append(["Атаковать", UI.RED, func(): _issue({"cmd": "attack", "lane": lane})])
-	if tutorial != null:
-		items = tutorial.filter_menu_items(items)
 	if items.is_empty():
 		var why := "Нет доступных действий"
 		if game.is_first_turn() and game.floop_ability(c, viewer, zone, lane) != "":
@@ -3805,7 +3784,7 @@ func _issue_as(p: int, c: Dictionary, timed_out := false) -> void:
 	if _busy:
 		return
 	if tutorial != null and not tutorial.allow_command(p, c):
-		tutorial.reject_action()
+		tutorial.reject_command()
 		return
 	if net != null:
 		_net_seq_out += 1
@@ -3818,6 +3797,8 @@ func _issue_as(p: int, c: Dictionary, timed_out := false) -> void:
 	if timed_out:
 		_add_log("— Время хода вышло")
 	await _run(func(): await _command(p, c))
+	if tutorial != null:
+		tutorial.command_resolved(p, c)
 
 
 ## Runs one engine command with input locked, then checks what comes next.
@@ -3839,7 +3820,8 @@ func _run(cmd: Callable) -> void:
 		return      # a replay has every step recorded, the turn ends included
 	if _concede_wanted:
 		_try_concede()
-	if game.phase == "attack" and game.attackers_left(game.turn_player).is_empty():
+	if game.phase == "attack" and game.attackers_left(game.turn_player).is_empty() \
+			and not (tutorial != null and tutorial.hold_combat_end(game.turn_player)):
 		# Everybody has attacked: the turn ends. Online, only the acting side says so.
 		if net == null:
 			_run(func(): await game.cmd_end_turn(game.turn_player))
@@ -3880,14 +3862,10 @@ func _command(p: int, c: Dictionary) -> void:
 		return
 	if not _undo_seat(p):
 		await game.run_command(p, c)
-		if tutorial != null:
-			tutorial.on_human_command(p, c)
 		return
 	var point: Dictionary = game.undo_point(p)
 	var h: int = game.state_hash()
 	await game.run_command(p, c)
-	if tutorial != null:
-		tutorial.on_human_command(p, c)
 	var ok: bool = game.undo_clean(point) and game.state_hash() != h
 	_undo_point = point if ok and game.turn_player == p and (game.phase == "main" or game.phase == "attack") else {}
 
@@ -4023,6 +4001,8 @@ func _run_ai_loop() -> void:
 					if not spare.is_empty():
 						cmd = spare
 		await _run_ai_command(p, cmd)
+		if tutorial != null:
+			await tutorial.after_ai_command(p, cmd)
 		AIHelper.clear_plan(game)
 	_ai_turn_running = false
 
@@ -4041,8 +4021,6 @@ func _run_ai_command(p: int, cmd: Dictionary) -> void:
 		await _run(func(): await game.run_command(p, cmd))
 	if sandbox != null:
 		sandbox.settle()
-	if tutorial != null:
-		tutorial.on_ai_command(p, cmd)
 	if game == null or game.state_hash() != before or game.turn_player != p \
 			or not (game.phase == "main" or game.phase == "attack"):
 		return
@@ -4361,8 +4339,6 @@ func _close_inspect() -> void:
 # ================================================================ chooser
 
 func choose(req: Dictionary):
-	if tutorial != null:
-		req = tutorial.filter_choice(req)
 	if replay_steps != null:
 		return await _replay_choice(req)
 	if (ai_vs_ai or ai_agent != null or not seat_agents.is_empty()) and _is_ai_seat(int(req.get("player", local_player))):
@@ -4451,7 +4427,8 @@ func _local_choice(req: Dictionary):
 		text = "Выбирает %s — %s" % [game.players[chooser_p].name, text]
 		picker_title.text = text
 	prompt_label.text = text
-	skip_button.visible = req.get("optional", false)
+	skip_button.visible = req.get("optional", false) \
+			and (tutorial == null or tutorial.optional_choice_skip_allowed())
 	prompt_panel.visible = true
 	_update_hud()
 	await get_tree().process_frame
@@ -4469,6 +4446,9 @@ func _local_choice(req: Dictionary):
 
 func _resolve_choice(result) -> void:
 	if _choice == null:
+		return
+	if tutorial != null and not tutorial.allow_choice(_choice, result):
+		tutorial.reject_choice()
 		return
 	_choice_result = result
 	UI.sfx("select")
@@ -4743,6 +4723,19 @@ func _draw_decor() -> void:
 			var rot := _card_rot(side, lane)
 			_draw_shape(_shape(creature_pos(side, lane), _creature_slot(), rot), Color.WHITE, true, 2.0, _slot_box)
 			_draw_shape(_shape(building_pos(side, lane), _building_slot(), rot), Color.WHITE, true, 2.0, _slot_box)
+	for spot: Dictionary in tutorial_land_targets:
+		var sh := _land_shape(int(spot["p"]), int(spot["lane"]))
+		_draw_shape(sh, Color(1.0, 0.84, 0.25, 0.22))
+		_draw_shape(sh, Color(1.0, 0.84, 0.25, 0.95), false, 5.0)
+	for spot: Dictionary in tutorial_building_targets:
+		var side := int(spot["p"])
+		var lane := int(spot["lane"])
+		var sh := _shape(building_pos(side, lane), _building_slot(), _card_rot(side, lane))
+		_draw_shape(sh, Color(1.0, 0.84, 0.25, 0.22))
+		_draw_shape(sh, Color(1.0, 0.84, 0.25, 0.95), false, 5.0)
+	for sh: Dictionary in tutorial_world_targets:
+		_draw_shape(sh, Color(1.0, 0.84, 0.25, 0.2))
+		_draw_shape(sh, Color(1.0, 0.84, 0.25, 0.95), false, 5.0)
 	# The deck drawn on the mat stays when a player's deck runs out: it goes dark.
 	var k := _pile_scale() / S_PILE
 	for side in sides:
@@ -4854,7 +4847,7 @@ func shake_screen(amount: float) -> void:
 
 func play(ev: Dictionary) -> void:
 	if tutorial != null:
-		tutorial.on_event(ev)
+		tutorial.on_game_event(ev)
 	var v = views.get(ev.get("uid", -1))
 	match ev["type"]:
 		"log":

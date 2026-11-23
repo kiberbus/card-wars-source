@@ -10,15 +10,26 @@
 
 1. Скачай [Godot 4.7](https://godotengine.org/download), обычную версию без .NET.
 2. Установи саму игру со страницы [kiberbus/card-wars](https://github.com/kiberbus/card-wars) и запусти её один раз, чтобы она скачала последнее обновление.
-3. Открой в Godot файл `project.godot` из этой папки и запусти проект (F5).
+3. Из папки проекта запусти `powershell.exe -NoProfile -ExecutionPolicy Bypass -File tools\make_dev_assets_pack.ps1`. Команда соберёт локальный пакет только с картинками, звуками и импортированными ресурсами; сцены и скрипты из установленной игры в него не попадут.
+4. Открой в Godot файл `project.godot` из этой папки и запусти проект (F5). Удалять или переносить `CardWars.pck` не нужно.
 
-Картинки и звуки проект ищет так:
+Для запуска из редактора команда создаёт `dev_assets_clean.pck` в папке данных Godot проекта. В него попадают только игровые ресурсы; скомпилированные сцены и скрипты из установленной игры не загружаются поверх исходников проекта. Исходный `CardWars.pck` не изменяется.
+
+Если игра установлена не в стандартную папку, путь к пакету можно передать явно:
+
+```
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File tools\make_dev_assets_pack.ps1 -GamePack "D:\путь\CardWars.pck"
+```
+
+Этот шаг влияет на запуск проекта из редактора (F5), но не изменяет установленный `CardWars.exe`. Для обновления установленной игры нужен отдельный пакет обновления.
+
+Если нужно найти исходный пакет вручную:
 
 - на Windows в папке установщика: `%LOCALAPPDATA%\Programs\CardWars\CardWars.pck`;
 - на macOS в `CardWars.app` из папки «Программы»;
 - если игра стоит в другом месте (zip-версия, Linux), создай рядом с `project.godot` файл `game_path.txt` и напиши в нём путь к `CardWars.pck` или к папке с ним.
 
-Обновления, которые скачала установленная игра, проект тоже подхватывает. Если в коде появились новые карты, а игра ещё не обновлена, у таких карт не будет картинок.
+Команда выше также берёт обновления, которые скачала установленная игра. Если в коде появились новые карты, а игра ещё не обновлена, у таких карт не будет картинок.
 
 ## Тесты
 
@@ -29,6 +40,9 @@ godot --headless --path . -s res://tests/rules_test.gd
 godot --headless --path . -s res://tests/cards_test.gd
 godot --headless --path . -s res://tests/deck_rules_test.gd
 godot --headless --path . -s res://tests/hooks_test.gd
+godot --headless --path . -s res://tests/tutorial_menu_test.gd
+godot --headless --path . -s res://tests/basic_tutorial_setup_test.gd
+godot --headless --path . -s res://tests/basic_tutorial_flow_test.gd
 godot --headless --path . -s res://tests/sim.gd -- 300 1
 ```
 
