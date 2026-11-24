@@ -5,6 +5,7 @@ const TutorialText = preload("res://scripts/ui/tutorial_text.gd")
 const TutorialCardText = preload("res://scripts/ui/tutorial_card_text.gd")
 const CardDB = preload("res://scripts/core/card_db.gd")
 const TouchInput = preload("res://scripts/ui/touch_input.gd")
+const Phone = preload("res://scripts/ui/phone.gd")
 
 var main: Control
 var failures := 0
@@ -46,9 +47,28 @@ func _run() -> void:
 				"selected language is applied to introduction and tutorial buttons")
 		_check(not tutor.card_property_panel.visible, "introduction hides the card property panel")
 		_check(tutor.phase_text.text.contains(item[5]), "phase guide uses the selected language")
+		await process_frame
+		await process_frame
+		_check(is_equal_approx(tutor.guide_panel.position.x, 400.0),
+				"introduction keeps its centered position")
+		_check_guide_bounds(tutor, "during the introduction")
 		tutor._advance()
 		tutor._advance()
 		tutor._advance()
+		await process_frame
+		await process_frame
+		_check_guide_bounds(tutor, "after the introduction")
+		_check(tutor.guide_panel.size.x <= 520.0,
+				"guide shrinks back after the wide introduction")
+		var guide_right: float = tutor.guide_panel.position.x + tutor.guide_panel.size.x
+		var guide_left: float = tutor.guide_panel.position.x
+		tutor.guide_panel.custom_minimum_size.x = 800
+		await process_frame
+		await process_frame
+		_check(tutor.guide_panel.position.x < guide_left
+				and is_equal_approx(tutor.guide_panel.position.x + tutor.guide_panel.size.x, guide_right),
+				"a wider guide expands to the left")
+		tutor._set_step(tutor.Step.INTERFACE)
 		tutor._advance()
 		_check(tutor.dialogue_text.text.contains(item[4]), "character dialogue uses the selected language")
 		tutor._advance()
@@ -58,6 +78,7 @@ func _run() -> void:
 				tutor.Step.TELEPORT, tutor.Step.ARCHITECT]:
 			tutor._set_step(lesson)
 			await process_frame
+			_check_guide_bounds(tutor, "during lesson %d" % lesson)
 			_check(tutor.guide_text.get_visible_line_count() == tutor.guide_text.get_line_count()
 					and tutor.guide_panel.position.y + tutor.guide_panel.size.y <= 1080.0,
 					"translated lesson %d fits the tutorial panel" % lesson)
@@ -77,12 +98,28 @@ func _run() -> void:
 			_check(tutor.card_property_text.get_theme_font("font").has_char("한".unicode_at(0)),
 					"card property uses the Korean font")
 		await _check_card_preview(tutor)
+		var old_phone := Phone.active
+		Phone.active = true
+		main.board.set_side_room(0.0, true)
+		tutor._set_step(tutor.Step.INTERFACE)
+		await process_frame
+		await process_frame
+		_check_guide_bounds(tutor, "in the phone layout")
+		Phone.active = old_phone
 		_check(TranslationServer.get_locale() == original_locale,
 				"tutorial language does not alter the game's global locale")
 		main.show_title()
 		await create_timer(0.3).timeout
 		_check(_button("Обучение") != null, "main menu remains in Russian after the tutorial")
 	quit(1 if failures > 0 else 0)
+
+
+func _check_guide_bounds(tutor, context: String) -> void:
+	var board = main.board
+	var top_hero: Control = board.hero_ui["top"]["panel"]
+	var right_column_x: float = minf(top_hero.position.x, board.main_button.position.x)
+	_check(tutor.guide_panel.position.x + tutor.guide_panel.size.x <= right_column_x,
+			"tutorial guide stays left of the right-hand interface " + context)
 
 
 func _check_translation_coverage() -> void:

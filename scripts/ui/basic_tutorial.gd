@@ -56,6 +56,7 @@ var phase_panel: PanelContainer
 var phase_text: Label
 var guide_panel: PanelContainer
 var guide_text: Label
+var guide_right_edge := 1550.0
 var next_button: Button
 var dialogue_layer: Control
 var dialogue_character: TextureRect
@@ -107,6 +108,7 @@ func _build_ui() -> void:
 	guide_panel.z_index = 90
 	guide_panel.add_theme_stylebox_override("panel", WoodUI.window(20, 14))
 	board.hud.add_child(guide_panel)
+	guide_panel.resized.connect(_place_guide)
 	var guide_box := VBoxContainer.new()
 	guide_box.add_theme_constant_override("separation", 8)
 	guide_panel.add_child(guide_box)
@@ -217,6 +219,7 @@ func _build_ui() -> void:
 
 
 func _process(_delta: float) -> void:
+	_place_guide()
 	if card_property_panel == null:
 		return
 	card_property_panel.position = board.preview_rect.position + Vector2(board.preview_rect.size.x + 8, 0)
@@ -235,12 +238,20 @@ func show_card_property(id: String) -> void:
 
 
 func _set_guide_layout(pos: Vector2, dimensions: Vector2, font_size: int, centered := false) -> void:
-	guide_panel.position = pos
-	guide_panel.custom_minimum_size = dimensions
-	guide_panel.size = dimensions
+	guide_right_edge = pos.x + dimensions.x
+	guide_panel.position.y = pos.y
 	guide_text.custom_minimum_size = Vector2(dimensions.x - 40, dimensions.y - 90)
 	guide_text.add_theme_font_size_override("font_size", font_size)
 	guide_text.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER if centered else HORIZONTAL_ALIGNMENT_LEFT
+	guide_panel.custom_minimum_size = dimensions
+	guide_panel.size = dimensions
+	_place_guide()
+
+
+func _place_guide() -> void:
+	var hero_panel: Control = board.hero_ui["top"]["panel"]
+	var right_limit: float = minf(hero_panel.position.x, board.main_button.position.x) - 12.0
+	guide_panel.position.x = minf(guide_right_edge, right_limit) - guide_panel.size.x
 
 
 func _show_dialogue(character: Texture2D, text: String, final_choices := false) -> void:

@@ -25,8 +25,14 @@ func _run_test() -> void:
 	tutor._advance()
 	tutor._advance()
 	tutor._advance()
+	await process_frame
+	await process_frame
 	_check(tutor.guide_panel.visible and tutor.guide_text.text.contains("три вида карт"),
 			"the interface lesson explains card properties and types without center-screen cards")
+	var hero_panel: Control = main.board.hero_ui["top"]["panel"]
+	_check(tutor.guide_panel.position.x + tutor.guide_panel.size.x <= hero_panel.position.x
+			and not tutor.guide_panel.get_rect().intersects(tutor.phase_panel.get_rect()),
+			"Russian tutorial guide leaves the hero and phase guide visible")
 	tutor._advance()
 	_check(tutor.step == 38 and tutor.dialogue_layer.visible
 			and tutor.dialogue_text.text.contains("Друг, давай играть уже")
