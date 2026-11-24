@@ -129,6 +129,11 @@ func _check_guide_bounds(tutor, context: String) -> void:
 
 
 func _check_translation_coverage() -> void:
+	for language: String in ["en", "ko"]:
+		var rules: Dictionary = TutorialText.TEXT[language]
+		_check(rules["rules_body"].contains(rules["rules_desktop_controls"])
+				and not rules["rules_mobile_controls"].is_empty(),
+				"%s rules can replace desktop controls on mobile" % language)
 	var source := FileAccess.get_file_as_string("res://scripts/ui/basic_tutorial.gd")
 	var pattern := RegEx.new()
 	pattern.compile('_text\\("([^"]+)",\\s*"((?:[^"\\\\]|\\\\.)*)"\\)')

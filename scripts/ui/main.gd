@@ -56,7 +56,7 @@ const MODE_NAMES := {"hotseat": "на одном устройстве", "ai": "�
 	"teams": "2 на 2", "teams_net": "2 на 2 по сети", "three": "на троих", "three_net": "на троих по сети"}
 const SETTINGS_PATH := "user://settings.cfg"
 ## Buttons that close a window or go back a screen: Escape and the phone's Back press them.
-const BACK_TEXTS := ["Назад", "Закрыть", "Готово", "Позже", "Понятно", "Хорошо"]
+const BACK_TEXTS := ["Назад", "Закрыть", "Готово", "Позже", "Понятно", "Хорошо", "Back", "뒤로"]
 const GAME_VERSION := "альфа 0.3.3"
 ## Build number of this version: the updater offers builds with a bigger one.
 ## Raise it with GAME_VERSION, then tools/publish.ps1 hands the new version out.
@@ -689,12 +689,17 @@ func show_tutorial_menu() -> void:
 	var trainer := WoodUI.button("Тренажёр", UI.ORANGE, font_size, button_size)
 	trainer.disabled = true
 	v.add_child(trainer)
+	var rules := WoodUI.button("Правила", UI.ORANGE, font_size, button_size)
+	rules.pressed.connect(func():
+		_close_overlay(root)
+		show_tutorial_language_menu(true))
+	v.add_child(rules)
 	if not phone_layout:
 		v.add_child(back)
 	_pop_in(v)
 
 
-func show_tutorial_language_menu() -> void:
+func show_tutorial_language_menu(for_rules := false) -> void:
 	if _overlay_open:
 		return
 	var root := _overlay_root(Color(0.02, 0.01, 0.05, 0.6))
@@ -719,7 +724,10 @@ func show_tutorial_language_menu() -> void:
 			button.add_theme_font_override("font", korean_font)
 		button.pressed.connect(func():
 			_close_overlay(root)
-			start_basic_tutorial(choice[1]))
+			if for_rules:
+				show_rules(choice[1], true)
+			else:
+				start_basic_tutorial(choice[1]))
 		v.add_child(button)
 	var back := WoodUI.button("Назад", WoodUI.BACK, 28, Vector2(220, 62))
 	back.pressed.connect(func():
@@ -946,9 +954,6 @@ func show_settings() -> void:
 			var w := get_window()
 			w.mode = Window.MODE_WINDOWED if w.mode == Window.MODE_FULLSCREEN else Window.MODE_FULLSCREEN)
 		right.add_child(full)
-	var rules := WoodUI.button("Правила", UI.ORANGE, 24, bsize)
-	rules.pressed.connect(show_rules)
-	right.add_child(rules)
 	if not OS.has_feature("mobile") and not phone_layout:
 		var controls := WoodUI.button("Управление", UI.ORANGE, 24, bsize)
 		controls.pressed.connect(show_controls)
@@ -1237,7 +1242,7 @@ func _clear_title() -> void:
 		title_root = null
 
 
-func show_rules() -> void:
+func show_rules(language := "ru", from_tutorial := false) -> void:
 	var root := _overlay_root(Color(0.03, 0.02, 0.07, 0.86))
 	var center := FitCenter.new()
 	center.set_anchors_preset(Control.PRESET_FULL_RECT)
@@ -1248,7 +1253,11 @@ func show_rules() -> void:
 	var v := VBoxContainer.new()
 	v.add_theme_constant_override("separation", 14)
 	panel.add_child(v)
-	v.add_child(_title("Правила"))
+	var title_text := TutorialText.get_text(language, "rules_title", "Правила")
+	var title := _title(title_text)
+	if language == "ko":
+		(title.get_child(0) as Label).label_settings.font = TutorialText.korean_font()
+	v.add_child(title)
 	# A sheet of paper as big as the screen allows: ink letters read best on it.
 	var sheet := PanelContainer.new()
 	var sb := WoodUI.paper(WoodUI.PAPER, 0.0, 12)
@@ -1260,22 +1269,49 @@ func show_rules() -> void:
 	v.add_child(sheet)
 	var room := FitCenter.safe_rect(root)
 	var text := RichTextLabel.new()
+	text.name = "RulesText"
 	text.bbcode_enabled = true
-	text.custom_minimum_size = Vector2(minf(1150.0, room.size.x - 150.0), maxf(300.0, room.size.y - 250.0 * WoodUI.font_scale))
+	var text_size := Vector2(minf(1150.0, room.size.x - 150.0), maxf(300.0, room.size.y - 250.0 * WoodUI.font_scale))
 	text.add_theme_font_override("normal_font", WoodUI.REGULAR)
 	text.add_theme_font_override("bold_font", WoodUI.BOLD)
+	if language == "ko":
+		var korean_font: Font = TutorialText.korean_font()
+		text.add_theme_font_override("normal_font", korean_font)
+		text.add_theme_font_override("bold_font", korean_font)
 	text.add_theme_font_size_override("normal_font_size", WoodUI.fs(22))
 	text.add_theme_font_size_override("bold_font_size", WoodUI.fs(23))
 	text.add_theme_color_override("default_color", WoodUI.INK)
-	text.text = RULES_TEXT.replace("#ffd75a", "#a3501c").replace("#9fe7ff", "#2a6585")
+	text.text = TutorialText.get_text(language, "rules_body", RULES_TEXT).replace("#ffd75a", "#a3501c").replace("#9fe7ff", "#2a6585")
 	if OS.has_feature("mobile"):
-		text.text = text.text.replace("ПКМ — рассмотреть любую открытую карту. Пробел — ускорить анимации. F11 — полный экран. Esc — меню.",
-			"Подержи палец на открытой карте, чтобы рассмотреть её. Кнопка «Назад» — меню.").replace("кликни", "нажми") \
-			.replace("Клик по", "Нажатие на")
-	sheet.add_child(text)
-	var back := WoodUI.button("Понятно!", UI.GREEN, 30, Vector2(260, 64))
+		if language == "ru":
+			text.text = text.text.replace("ПКМ — рассмотреть любую открытую карту. Пробел — ускорить анимации. F11 — полный экран. Esc — меню.",
+				"Подержи палец на открытой карте, чтобы рассмотреть её. Кнопка «Назад» — меню.").replace("кликни", "нажми") \
+				.replace("Клик по", "Нажатие на")
+		else:
+			text.text = text.text.replace(TutorialText.TEXT[language]["rules_desktop_controls"],
+					TutorialText.TEXT[language]["rules_mobile_controls"])
+	if phone_layout:
+		var scroll := ScrollContainer.new()
+		scroll.name = "RulesScroll"
+		scroll.custom_minimum_size = text_size
+		scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+		text.fit_content = true
+		text.scroll_active = false
+		text.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		scroll.add_child(text)
+		sheet.add_child(scroll)
+	else:
+		text.custom_minimum_size = text_size
+		sheet.add_child(text)
+	var back_text := TutorialText.get_text(language, "rules_back", "Назад") if from_tutorial else "Понятно!"
+	var back := WoodUI.button(back_text, UI.GREEN, 30, Vector2(260, 64))
+	if language == "ko":
+		back.add_theme_font_override("font", TutorialText.korean_font())
 	back.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-	back.pressed.connect(func(): _close_overlay(root))
+	back.pressed.connect(func():
+		_close_overlay(root)
+		if from_tutorial:
+			show_tutorial_language_menu(true))
 	v.add_child(back)
 	_pop_in(v)
 

@@ -3,6 +3,45 @@ extends RefCounted
 const TEXT := {
 	"en": {
 		"next": "Next",
+		"rules_title": "Rules",
+		"rules_back": "Back",
+		"rules_desktop_controls": "Right-click to inspect any face-up card. Space speeds up animations. F11 toggles full screen. Esc opens the menu.",
+		"rules_mobile_controls": "Hold a finger on a face-up card to inspect it. The Back button opens the menu.",
+		"rules_body": """[b][color=#ffd75a]Goal.[/color][/b] Reduce your opponent's health from 25 to 0.
+
+[b][color=#ffd75a]Heroes and decks.[/color][/b] Before the game, each player chooses a hero: their deck has 40 cards and 4 lands. Land types are Blue Plains, Cornfields, NiceLands, Useless Swamps, SandyLands, IcyLands, and the Ghost lands of «Лич». The «Лич» and «Древесная Ветвь» decks are fan-made, from a Tabletop Simulator mod.
+
+[b][color=#ffd75a]Setup.[/color][/b] A coin toss decides who goes first. Players with two land types («Лимонохват», «Гантер», «Пупырка», «Марселин») arrange their own 4 lands. Each player draws 5 cards and may replace their starting hand once per game.
+
+[b][color=#ffd75a]The field.[/color][/b] There are four lanes. Each lane has a land on your side, with room for one of your creatures on it and one building beneath it. A creature attacks only what is opposite it in the same lane.
+
+[b][color=#ffd75a]A turn.[/color][/b]
+1. Prepare all your cards (turn them upright).
+2. Draw a card.
+3. Spend 2 actions: play cards, use abilities, or draw a card for 1 action. Unused actions are lost at the end of the turn.
+4. FLOOP: turn your creature or building sideways to use its «ПРИЁМ >>>» ability. A flipped creature cannot attack this turn, but still defends.
+5. Attack: all upright creatures must attack, in the order you choose. If an opposing creature is present, both deal damage simultaneously. If the lane is empty, the opponent takes the damage.
+
+[b][color=#ffd75a]Playing cards.[/color][/b] The cost in the circle is both the number of actions spent and the number of lands of the required type you must control. Rainbow cards work with any land. Face-down lands do not count as any type. Cost 0 cards can always be played on your turn.
+A creature can be played in any of your lanes. If your upright creature is already there, it is replaced and goes to the discard pile. Buildings go beneath the land and are replaced in the same way. Spells take effect and go to the discard pile.
+
+[b][color=#9fe7ff]Ice.[/color][/b] Cards from «Ледяной Король» and «Гантер» freeze lands with ice tokens. Creatures and buildings cannot be played on a frozen land. On your turn, spend 1 action to melt ice on your land by selecting it.
+
+[b][color=#ffd75a]Damage.[/color][/b] Damage on creatures remains between turns. When damage reaches its defense, the creature dies and goes to its owner's discard pile. Healing damage removes damage from a creature; restoring HP returns health to a player, up to 25.
+
+[b][color=#ffd75a]Important.[/color][/b] On the very first turn, the first player cannot FLOOP or attack. There is no hand limit, and an empty deck does not cause defeat. If an ability has a valid target, you must choose one.
+
+[b][color=#9fe7ff]Controls.[/color][/b] Drag a card from your hand to a lane, or select the card and then a highlighted lane. Selecting your creature or building opens its menu: FLOOP, ability, attack. Select your deck to draw a card for an action. Right-click to inspect any face-up card. Space speeds up animations. F11 toggles full screen. Esc opens the menu.
+
+[b][color=#ffd75a]2 vs 2.[/color][/b] Two teams of two sit with partners opposite each other; turns go around the table. Each team shares 40 health. Two of your lands face the opponent on your left and two face the opponent on your right: a creature attacks whoever is opposite its lane. The two middle lands count as adjacent. The first three players cannot FLOOP or attack on their first turn. «Opponent» in card text means either opponent: choose one when it matters; «each enemy creature» means creatures belonging to both. Ice tokens are unlimited, as in a two-player game. Empty seats are filled by AI; online, the AI runs on the room host's PC.
+
+[b][color=#ffd75a]Three players.[/color][/b] Every player is on their own, with 25 health, and turns go around the table. Two of your lands face the opponent on your left and two face the opponent on your right. The first two players cannot FLOOP or attack on their first turn. «Opponent» in card text means either opponent: choose one when it matters; «each enemy creature» means creatures belonging to both. The first player to lose all health is eliminated and their cards leave the table. The remaining two finish 1 vs 1 on a regular field, lane against lane. The eliminated player watches until the end. The last player wins.
+
+[b][color=#9fe7ff]On one device.[/color][/b] Two players can share one device. Between turns, a curtain hides the screen so your opponent cannot see your hand. If your opponent must choose a card from their hand during your turn, their cards appear on screen: look away.
+
+[b][color=#9fe7ff]Online.[/color][/b] Both players connect to the same Radmin VPN network or local network and choose their heroes. One selects «Создать игру» (Create game) and gives their address to the other player (in Radmin it looks like 26.x.x.x); the other enters it and selects «Подключиться» (Connect). If Windows asks about the firewall, allow access. Both players must have the same game version.
+If the connection drops, the game is paused rather than reset. The guest selects «Переподключиться» (Reconnect), or waits for the automatic reconnection, and the game continues from the same point.
+""",
 		"jake_nerd": "Jake, nerd!",
 		"friend": "Sorry, Jake. Let's play again",
 		"phase_title": "TURN PHASE",
@@ -69,6 +108,45 @@ const TEXT := {
 	},
 	"ko": {
 		"next": "다음",
+		"rules_title": "게임 규칙",
+		"rules_back": "뒤로",
+		"rules_desktop_controls": "마우스 오른쪽 버튼으로 앞면 카드를 살펴봅니다. 스페이스바는 애니메이션을 빠르게 합니다. F11은 전체 화면, Esc는 메뉴입니다.",
+		"rules_mobile_controls": "앞면 카드를 손가락으로 길게 눌러 살펴봅니다. 뒤로 가기 버튼은 메뉴를 엽니다.",
+		"rules_body": """[b][color=#ffd75a]목표.[/color][/b] 상대의 생명을 25에서 0으로 줄입니다.
+
+[b][color=#ffd75a]영웅과 덱.[/color][/b] 게임 전에 각자 영웅을 선택합니다. 영웅의 덱은 카드 40장과 땅 4장으로 구성됩니다. 땅은 푸른 평원, 옥수수밭, 귀여운 땅, 쓸모없는 늪, 모래 땅, 얼음 땅이 있으며, «Лич»에게는 유령 땅이 있습니다. «Лич»와 «Древесная Ветвь» 덱은 Tabletop Simulator 모드에서 가져온 팬 제작 덱입니다.
+
+[b][color=#ffd75a]준비.[/color][/b] 동전 던지기로 선공을 정합니다. 땅 종류가 두 개인 영웅(«Лимонохват», «Гантер», «Пупырка», «Марселин»)은 자신의 땅 4장을 직접 배치합니다. 각자 카드 5장을 뽑고, 게임당 한 번 시작 손패를 교체할 수 있습니다.
+
+[b][color=#ffd75a]필드.[/color][/b] 구역은 네 개입니다. 각 구역의 내 땅 위에는 내 생물 하나, 땅 아래에는 건물 하나를 놓을 수 있습니다. 생물은 같은 구역의 맞은편만 공격합니다.
+
+[b][color=#ffd75a]턴.[/color][/b]
+1. 내 카드를 모두 준비합니다(똑바로 세웁니다).
+2. 카드를 한 장 뽑습니다.
+3. 행동 2개를 써서 카드를 사용하거나 능력을 쓰거나, 행동 1개로 카드를 뽑습니다. 남은 행동은 턴 종료 시 사라집니다.
+4. 플룹: 내 생물이나 건물을 옆으로 돌려 «ПРИЁМ >>>» 능력을 사용합니다. 돌려진 생물은 이번 턴에 공격할 수 없지만 방어는 합니다.
+5. 공격: 돌려지지 않은 모든 생물은 원하는 순서로 공격해야 합니다. 맞은편에 생물이 있으면 서로 동시에 피해를 줍니다. 비어 있으면 상대 플레이어가 피해를 받습니다.
+
+[b][color=#ffd75a]카드 사용.[/color][/b] 원 안의 비용은 필요한 행동 수이자 보유해야 하는 해당 종류의 땅 수입니다. 무지개 카드는 모든 땅에 사용할 수 있습니다. 뒤집힌 땅은 어떤 종류로도 세지 않습니다. 비용 0인 카드는 내 턴에 항상 사용할 수 있습니다.
+생물은 내 어느 구역에나 놓을 수 있습니다. 그곳에 내 돌려지지 않은 생물이 있으면 기존 생물은 교체되어 버림 더미로 갑니다. 건물은 땅 아래에 놓으며 같은 방식으로 교체합니다. 주문은 효과를 낸 뒤 버림 더미로 갑니다.
+
+[b][color=#9fe7ff]얼음.[/color][/b] «Ледяной Король»과 «Гантер»의 카드는 얼음 토큰으로 땅을 얼립니다. 얼어붙은 땅에는 생물과 건물을 놓을 수 없습니다. 내 턴에 얼어붙은 내 땅을 선택하고 행동 1개를 써서 얼음을 녹일 수 있습니다.
+
+[b][color=#ffd75a]피해.[/color][/b] 생물이 받은 피해는 턴이 지나도 남습니다. 피해가 방어력에 도달하면 생물은 쓰러져 소유자의 버림 더미로 갑니다. 피해 회복은 생물의 피해를 없애며, HP 회복은 플레이어의 생명을 최대 25까지 돌려줍니다.
+
+[b][color=#ffd75a]중요.[/color][/b] 첫 번째 플레이어는 맨 첫 턴에 플룹과 공격을 할 수 없습니다. 손패 제한은 없으며 덱이 비어도 패배하지 않습니다. 능력에 유효한 대상이 있으면 반드시 하나를 선택해야 합니다.
+
+[b][color=#9fe7ff]조작.[/color][/b] 손패의 카드를 구역으로 끌거나, 카드를 선택한 뒤 강조된 구역을 선택합니다. 내 생물이나 건물을 선택하면 플룹, 능력, 공격 메뉴가 열립니다. 내 덱을 선택하면 행동 하나로 카드를 뽑습니다. 마우스 오른쪽 버튼으로 앞면 카드를 살펴봅니다. 스페이스바는 애니메이션을 빠르게 합니다. F11은 전체 화면, Esc는 메뉴입니다.
+
+[b][color=#ffd75a]2 대 2.[/color][/b] 두 명씩 두 팀을 이룹니다. 같은 팀은 마주 보고 앉으며 순서대로 턴을 진행합니다. 팀은 생명 40을 공유합니다. 내 땅 둘은 왼쪽 상대를, 나머지 둘은 오른쪽 상대를 마주 보며 생물은 자기 구역 맞은편을 공격합니다. 가운데 땅 두 개는 서로 인접합니다. 처음 세 플레이어는 각자의 첫 턴에 플룹과 공격을 할 수 없습니다. 카드의 «상대»는 두 상대 중 한 명이며 필요한 경우 직접 선택합니다. «상대의 모든 생물»은 두 상대의 생물 모두를 뜻합니다. 얼음 토큰은 2인 게임처럼 제한이 없습니다. 빈자리는 AI가 채우며, 온라인에서는 방을 만든 사람의 PC에서 AI가 실행됩니다.
+
+[b][color=#ffd75a]3인 게임.[/color][/b] 각자 생명 25로 혼자 싸우며 순서대로 턴을 진행합니다. 내 땅 둘은 왼쪽 상대를, 나머지 둘은 오른쪽 상대를 마주 봅니다. 처음 두 플레이어는 각자의 첫 턴에 플룹과 공격을 할 수 없습니다. 카드의 «상대»는 두 상대 중 한 명이며 필요한 경우 직접 선택합니다. «상대의 모든 생물»은 두 상대의 생물 모두를 뜻합니다. 생명을 먼저 모두 잃은 플레이어는 탈락하고 그 카드들은 필드에서 사라집니다. 남은 두 명은 일반 필드에서 구역끼리 마주 보며 1 대 1로 계속합니다. 탈락한 플레이어는 끝까지 관전합니다. 마지막까지 남은 플레이어가 승리합니다.
+
+[b][color=#9fe7ff]한 기기에서 플레이.[/color][/b] 두 명이 한 기기를 사용할 수 있습니다. 턴 사이에 가림막이 화면을 가려 상대가 내 손패를 보지 못하게 합니다. 내 턴에 상대가 자기 손패에서 카드를 골라야 한다면 그 카드들이 화면에 나타납니다. 그때는 화면을 보지 마세요.
+
+[b][color=#9fe7ff]온라인.[/color][/b] 두 플레이어가 같은 Radmin VPN 네트워크나 로컬 네트워크에 연결하고 영웅을 선택합니다. 한 명이 «Создать игру»(게임 만들기)를 누르고 자신의 주소를 알려 줍니다(Radmin 주소 예: 26.x.x.x). 다른 플레이어는 주소를 입력하고 «Подключиться»(연결)를 누릅니다. Windows 방화벽 확인 창이 나타나면 접근을 허용합니다. 두 플레이어의 게임 버전은 같아야 합니다.
+연결이 끊겨도 게임이 초기화되지 않고 일시 정지됩니다. 게스트가 «Переподключиться»(재연결)를 누르거나 자동 재연결을 기다리면 같은 지점부터 게임이 계속됩니다.
+""",
 		"jake_nerd": "제이크, 바보!",
 		"friend": "미안해, 제이크. 다시 하자",
 		"phase_title": "턴 단계 안내",
