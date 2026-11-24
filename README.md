@@ -31,6 +31,8 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File tools\make_dev_assets_pa
 
 Команда выше также берёт обновления, которые скачала установленная игра. Если в коде появились новые карты, а игра ещё не обновлена, у таких карт не будет картинок.
 
+Перед базовым обучением можно выбрать русский, английский или корейский язык подсказок и диалогов. При выборе английского или корейского рядом с превью карты показывается перевод её свойства для карт учебных колод; карты без свойства не получают отдельную панель. Названия карт, включая названия в свойствах, изображения карт и остальной интерфейс остаются на русском. Для корейского текста нужен системный шрифт с поддержкой корейского языка.
+
 ## Тесты
 
 Тесты запускаются без окна:
@@ -41,6 +43,7 @@ godot --headless --path . -s res://tests/cards_test.gd
 godot --headless --path . -s res://tests/deck_rules_test.gd
 godot --headless --path . -s res://tests/hooks_test.gd
 godot --headless --path . -s res://tests/tutorial_menu_test.gd
+godot --headless --path . -s res://tests/tutorial_language_test.gd
 godot --headless --path . -s res://tests/basic_tutorial_setup_test.gd
 godot --headless --path . -s res://tests/basic_tutorial_flow_test.gd
 godot --headless --path . -s res://tests/sim.gd -- 300 1

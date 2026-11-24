@@ -6,6 +6,8 @@ signal _next_pressed
 const CardView = preload("res://scripts/ui/card_view.gd")
 const UI = preload("res://scripts/ui/ui_kit.gd")
 const WoodUI = preload("res://scripts/ui/wood_ui.gd")
+const TutorialText = preload("res://scripts/ui/tutorial_text.gd")
+const TutorialCardText = preload("res://scripts/ui/tutorial_card_text.gd")
 const JAKE_INTRO := preload("res://assets/tutorial/characters/jake_intro.png")
 const FINN_CONFIDENT := preload("res://assets/tutorial/characters/finn_confident.png")
 const JAKE_REPLY := preload("res://assets/tutorial/characters/jake_reply.png")
@@ -27,6 +29,7 @@ enum Step {
 
 var game
 var board
+var language := "ru"
 var step: Step = Step.GOAL
 var finn_turns := 0
 var jinn_lane := -1
@@ -61,17 +64,25 @@ var dialogue_text: Label
 var dialogue_next_button: Button
 var dialogue_jake_button: Button
 var dialogue_friend_button: Button
+var card_property_panel: PanelContainer
+var card_property_text: Label
+var card_property_id := ""
 var focus_layer: Control
 var focus_rects: Array[Rect2] = []
 
 
-func start(g, b) -> void:
+func start(g, b, tutorial_language := "ru") -> void:
 	game = g
 	board = b
+	language = tutorial_language
 	board.tutorial = self
 	_build_ui()
 	_set_step(Step.WELCOME_ONE)
-	_update_phase("Начало первого хода: 5 карт уже в руке, восстанови 2 действия. Со следующего хода автоматически берётся 1 карта.")
+	_update_phase(_text("phase_first_intro", "Начало первого хода: 5 карт уже в руке, восстанови 2 действия. Со следующего хода автоматически берётся 1 карта."))
+
+
+func _text(key: String, russian: String) -> String:
+	return TutorialText.get_text(language, key, russian)
 
 
 func _build_ui() -> void:
@@ -109,7 +120,7 @@ func _build_ui() -> void:
 	buttons.alignment = BoxContainer.ALIGNMENT_END
 	buttons.add_theme_constant_override("separation", 10)
 	guide_box.add_child(buttons)
-	next_button = WoodUI.button("Далее", UI.GREEN, 20, Vector2(150, 44))
+	next_button = WoodUI.button(_text("next", "Далее"), UI.GREEN, 20, Vector2(150, 44))
 	next_button.pressed.connect(_advance)
 	buttons.add_child(next_button)
 
@@ -150,16 +161,43 @@ func _build_ui() -> void:
 	dialogue_buttons.alignment = BoxContainer.ALIGNMENT_END
 	dialogue_buttons.add_theme_constant_override("separation", 14)
 	dialogue_box.add_child(dialogue_buttons)
-	dialogue_next_button = WoodUI.button("Далее", UI.GREEN, 22, Vector2(170, 52))
+	dialogue_next_button = WoodUI.button(_text("next", "Далее"), UI.GREEN, 22, Vector2(170, 52))
 	dialogue_next_button.pressed.connect(_advance)
 	dialogue_buttons.add_child(dialogue_next_button)
-	dialogue_jake_button = WoodUI.button("Джейк Ботан!", UI.ORANGE, 20, Vector2(300, 52))
+	dialogue_jake_button = WoodUI.button(_text("jake_nerd", "Джейк Ботан!"), UI.ORANGE, 20, Vector2(300, 52))
 	dialogue_jake_button.pressed.connect(_choose_jake_response)
 	dialogue_buttons.add_child(dialogue_jake_button)
 	dialogue_friend_button = WoodUI.button(
-			"Прости Джейк, давай сыграем еще", UI.GREEN, 20, Vector2(440, 52))
+			_text("friend", "Прости Джейк, давай сыграем еще"), UI.GREEN, 20, Vector2(440, 52))
 	dialogue_friend_button.pressed.connect(_choose_good_friend)
 	dialogue_buttons.add_child(dialogue_friend_button)
+
+	if language == "en" or language == "ko":
+		card_property_panel = PanelContainer.new()
+		card_property_panel.size = Vector2(280, 0)
+		card_property_panel.custom_minimum_size.x = 280
+		card_property_panel.add_theme_stylebox_override("panel", WoodUI.window(15, 12))
+		card_property_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		card_property_panel.visible = false
+		board.hud.add_child(card_property_panel)
+		card_property_text = Label.new()
+		card_property_text.custom_minimum_size.x = 250
+		card_property_text.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		card_property_text.add_theme_font_size_override("font_size", 20)
+		card_property_text.add_theme_color_override("font_color", UI.CREAM)
+		card_property_text.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		card_property_panel.add_child(card_property_text)
+
+	if language == "ko":
+		var korean_font: Font = TutorialText.korean_font()
+		if not korean_font.has_char("한".unicode_at(0)):
+			push_warning("Basic tutorial: no Korean system font was found.")
+		for control: Control in [phase_text, guide_text, dialogue_text, next_button,
+				dialogue_next_button, dialogue_jake_button, dialogue_friend_button]:
+			control.add_theme_font_override("font", korean_font)
+		card_property_text.add_theme_font_override("font", korean_font)
+		board.preview_info.label_settings.font = korean_font
+		board.prompt_label.label_settings.font = korean_font
 
 	focus_layer = Control.new()
 	focus_layer.set_anchors_preset(Control.PRESET_FULL_RECT)
@@ -168,8 +206,32 @@ func _build_ui() -> void:
 	focus_layer.z_index = 80
 	board.hud.add_child(focus_layer)
 	board.preview_rect.position.y = 150
-	board.preview_info.position.y = 836
+	if card_property_panel != null:
+		board.preview_rect.size = Vector2(250, 350)
+		board.preview_rect.pivot_offset = board.preview_rect.size * 0.5
+		board.preview_info.position.y = 510
+		board.preview_info.size = Vector2(250, 140)
+	else:
+		board.preview_info.position.y = 836
 	_set_guide_layout(Vector2(1030, 14), Vector2(520, 260), 20)
+
+
+func _process(_delta: float) -> void:
+	if card_property_panel == null:
+		return
+	card_property_panel.position = board.preview_rect.position + Vector2(board.preview_rect.size.x + 8, 0)
+	card_property_panel.visible = card_property_id != "" and board.preview_rect.visible \
+			and not dialogue_layer.visible
+
+
+func show_card_property(id: String) -> void:
+	if card_property_panel == null:
+		return
+	var translations: Dictionary = TutorialCardText.TEXT.get(id, {})
+	var text: String = translations.get(language, "")
+	card_property_id = id if not text.is_empty() else ""
+	card_property_text.text = text
+	_process(0.0)
 
 
 func _set_guide_layout(pos: Vector2, dimensions: Vector2, font_size: int, centered := false) -> void:
@@ -218,7 +280,7 @@ func _choose_good_friend() -> void:
 	dialogue_panel.custom_minimum_size = Vector2(1220, 220)
 	dialogue_panel.size = dialogue_panel.custom_minimum_size
 	dialogue_text.custom_minimum_size = Vector2(1170, 150)
-	dialogue_text.text = "Получено достижение «Хороший друг»!"
+	dialogue_text.text = _text("achievement", "Получено достижение «Хороший друг»!")
 	dialogue_text.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	dialogue_next_button.visible = false
 	dialogue_jake_button.visible = false
@@ -247,7 +309,7 @@ func _exit_intro_layout() -> void:
 
 
 func _update_phase(text: String) -> void:
-	phase_text.text = "ПАМЯТКА ФАЗЫ\n" + text
+	phase_text.text = _text("phase_title", "ПАМЯТКА ФАЗЫ") + "\n" + text
 
 
 func _clear_focus() -> void:
@@ -292,6 +354,7 @@ func _highlight_table(uid: int) -> void:
 func _set_preview(id: String, description: String) -> void:
 	board.preview_rect.texture = CardView.texture_for(id)
 	board.preview_info.text = description
+	show_card_property(id)
 
 
 func _highlight_open_lands(exclude: Array = []) -> void:
@@ -311,17 +374,17 @@ func _set_step(next_step: Step) -> void:
 	dialogue_layer.visible = false
 	var message := ""
 	next_button.visible = false
-	next_button.text = "Далее"
+	next_button.text = _text("next", "Далее")
 	match step:
 		Step.WELCOME_ONE:
-			message = "Добро пожаловать на «Карточные войны». Это любимая игра Джейка и многих\nдругих, и скоро ты тоже её полюбишь. Впрочем, сначала давай изучим все эти КРАЙНЕ\nЗАУМНЫЕ правила."
+			message = _text("welcome_one", "Добро пожаловать на «Карточные войны». Это любимая игра Джейка и многих\nдругих, и скоро ты тоже её полюбишь. Впрочем, сначала давай изучим все эти КРАЙНЕ\nЗАУМНЫЕ правила.")
 			_set_guide_layout(Vector2(400, 370), Vector2(1120, 300), 28, true)
 			next_button.visible = true
 			phase_panel.visible = false
 			board.preview_rect.visible = false
 			board.preview_info.visible = false
 		Step.WELCOME_TWO:
-			message = "«Карточные войны» — настольный поединок, в котором у каждого игрока будет\nсобственная колода. Эпичные баталии развернутся на поле боя из четырёх зон, прямо как в мультфильме.\nЗадача игроков — снизить жизни соперника с 25 до 0. Сделаешь это — и ты крутой!"
+			message = _text("welcome_two", "«Карточные войны» — настольный поединок, в котором у каждого игрока будет\nсобственная колода. Эпичные баталии развернутся на поле боя из четырёх зон, прямо как в мультфильме.\nЗадача игроков — снизить жизни соперника с 25 до 0. Сделаешь это — и ты крутой!")
 			_set_guide_layout(Vector2(400, 370), Vector2(1120, 300), 28, true)
 			next_button.visible = true
 			phase_panel.visible = false
@@ -330,7 +393,7 @@ func _set_step(next_step: Step) -> void:
 			for key in board.hero_ui:
 				_focus_control(board.hero_ui[key]["panel"])
 		Step.LAND_ZONES:
-			message = "Четыре земли на твоей стороне поля — это четыре «ячейки» для твоих существ и строений.\nОдна зона состоит из двух земель, выложенных напротив друг друга."
+			message = _text("lands", "Четыре земли на твоей стороне поля — это четыре «ячейки» для твоих существ и строений.\nОдна зона состоит из двух земель, выложенных напротив друг друга.")
 			_set_guide_layout(Vector2(590, 120), Vector2(740, 270), 24)
 			next_button.visible = true
 			phase_panel.visible = false
@@ -341,7 +404,7 @@ func _set_step(next_step: Step) -> void:
 				board.tutorial_land_targets.append({"p": 1, "lane": lane})
 			board.decor.queue_redraw()
 		Step.GOAL:
-			message = "Цель игры — снизить жизни соперника до 0. Тип и количество земель определяют, какие карты можно разыграть."
+			message = _text("goal", "Цель игры — снизить жизни соперника до 0. Тип и количество земель определяют, какие карты можно разыграть.")
 			next_button.visible = true
 			for key in board.hero_ui:
 				_focus_control(board.hero_ui[key]["panel"])
@@ -350,179 +413,179 @@ func _set_step(next_step: Step) -> void:
 				board.tutorial_land_targets.append({"p": 0, "lane": lane})
 			board.decor.queue_redraw()
 		Step.INTERFACE:
-			message = "На карте: название сверху, стоимость слева вверху, тип земли справа вверху, атака и защита внизу. Есть три вида карт: существа ставятся на землю, строения — в зону под существом, заклинания дают мгновенный эффект и уходят в Сброс. В первый ход нельзя атаковать и использовать ФЛЮП."
+			message = _text("interface", "На карте: название сверху, стоимость слева вверху, тип земли справа вверху, атака и защита внизу. Есть три вида карт: существа ставятся на землю, строения — в зону под существом, заклинания дают мгновенный эффект и уходят в Сброс. В первый ход нельзя атаковать и использовать ФЛЮП.")
 			next_button.visible = true
 			for c in game.players[0].hand:
 				_highlight_table(c.uid)
 			_focus_control(board.actions_widget)
 			_highlight_hand("struzann_jinn")
-			_set_preview("struzann_jinn", "Название сверху · стоимость слева · земля справа · атака и защита снизу")
+			_set_preview("struzann_jinn", _text("interface_preview", "Название сверху · стоимость слева · земля справа · атака и защита снизу"))
 		Step.JAKE_INTERFACE_DIALOGUE:
-			_show_dialogue(JAKE_INTRO, "Друг, давай играть уже, всё просто, клади карты и всё.")
+			_show_dialogue(JAKE_INTRO, _text("jake_intro", "Друг, давай играть уже, всё просто, клади карты и всё."))
 		Step.PLAY_JINN:
-			message = "Начнём с существа: оно занимает зону на земле. У карты «Джинн Стрюзан» атака 1 и защита 11. Сыграй «Джинн Стрюзан» в любую свою зону за 2 действия."
+			message = _text("play_jinn", "Начнём с существа: оно занимает зону на земле. У карты «Джинн Стрюзан» атака 1 и защита 11. Сыграй «Джинн Стрюзан» в любую свою зону за 2 действия.")
 			_highlight_hand("struzann_jinn")
-			_set_preview("struzann_jinn", "Существо · стоимость 2 · атака 1 · защита 11")
+			_set_preview("struzann_jinn", _text("jinn_preview", "Существо · стоимость 2 · атака 1 · защита 11"))
 		Step.END_FIRST:
-			message = "В первый ход нельзя атаковать и использовать ФЛЮП. Нажми «Завершить ход»."
+			message = _text("end_first", "В первый ход нельзя атаковать и использовать ФЛЮП. Нажми «Завершить ход».")
 			_focus_control(board.main_button)
 		Step.DRAW_TWO:
-			message = "В начале хода готовятся повёрнутые карты, восстанавливаются 2 действия и автоматически берётся 1 карта — «Гномьи сопли»."
+			message = _text("draw_two", "В начале хода готовятся повёрнутые карты, восстанавливаются 2 действия и автоматически берётся 1 карта — «Гномьи сопли».")
 			next_button.visible = true
 			_focus_world(board.deck_pos(0), Vector2(130, 185))
 			for c in game.players[0].hand:
 				_highlight_table(c.uid)
 		Step.GNOME:
-			message = "Теперь новый тип — заклинание: оно сразу применяет эффект и отправляется в Сброс. «Гномьи сопли» стоят 1 действие и дают 3 карты. Сыграй «Гномьи сопли»."
+			message = _text("gnome", "Теперь новый тип — заклинание: оно сразу применяет эффект и отправляется в Сброс. «Гномьи сопли» стоят 1 действие и дают 3 карты. Сыграй «Гномьи сопли».")
 			_highlight_hand("gnome_snot")
 			_focus_world(board.discard_pos(0), Vector2(120, 170))
-			_set_preview("gnome_snot", "Заклинание · стоимость 1 · возьми 3 карты")
+			_set_preview("gnome_snot", _text("gnome_preview", "Заклинание · стоимость 1 · возьми 3 карты"))
 		Step.GNOME_RESULT:
-			message = "Отлично! Осталось 1 действие. Посмотри на подсвеченный счётчик действий."
+			message = _text("gnome_result", "Отлично! Осталось 1 действие. Посмотри на подсвеченный счётчик действий.")
 			next_button.visible = true
 			_focus_control(board.actions_widget)
 		Step.BABY:
-			message = "«Прохладный младенец» — радужное существо: для его розыгрыша не нужна земля определённого типа. Сыграй его за 0 действий в свободную зону напротив пустой зоны соперника."
+			message = _text("baby", "«Прохладный младенец» — радужное существо: для его розыгрыша не нужна земля определённого типа. Сыграй его за 0 действий в свободную зону напротив пустой зоны соперника.")
 			_highlight_hand("nice_ice_baby")
 			_highlight_open_lands([jinn_lane])
-			_set_preview("nice_ice_baby", "Радужное существо · стоимость 0 · можно играть на любую землю")
+			_set_preview("nice_ice_baby", _text("baby_preview", "Радужное существо · стоимость 0 · можно играть на любую землю"))
 		Step.FORTRESS:
-			message = "Теперь новый тип — строение. Его можно выложить в любую зону, даже если там уже есть существо: для него есть отдельная зона под существом. Строение остаётся на поле и даёт постоянный эффект. Сыграй «Кровавую крепость» под Младенца за последнее действие: она даст ему +1 к атаке."
+			message = _text("fortress", "Теперь новый тип — строение. Его можно выложить в любую зону, даже если там уже есть существо: для него есть отдельная зона под существом. Строение остаётся на поле и даёт постоянный эффект. Сыграй «Кровавую крепость» под Младенца за последнее действие: она даст ему +1 к атаке.")
 			_highlight_hand("blood_fortress")
 			board.tutorial_land_targets.append({"p": 0, "lane": baby_lane})
 			board.tutorial_building_targets.append({"p": 0, "lane": baby_lane})
 			board.decor.queue_redraw()
-			_set_preview("blood_fortress", "Строение · стоимость 1 · +1 к атаке существа в этой зоне")
+			_set_preview("blood_fortress", _text("fortress_preview", "Строение · стоимость 1 · +1 к атаке существа в этой зоне"))
 		Step.FINN_FORTRESS_DIALOGUE:
-			_show_dialogue(FINN_CONFIDENT, "Кажется, я понял эту игру, БОТАН!")
+			_show_dialogue(FINN_CONFIDENT, _text("finn_confident", "Кажется, я понял эту игру, БОТАН!"))
 		Step.BEGIN_BATTLE_TWO:
-			message = "Перейди в фазу боя кнопкой «В атаку!». Все подготовленные существа должны атаковать."
+			message = _text("battle_two", "Перейди в фазу боя кнопкой «В атаку!». Все подготовленные существа должны атаковать.")
 			_focus_control(board.main_button)
 		Step.ATTACK_TWO:
-			message = "Атакуй обеими подготовленными картами. В бою существа наносят урон друг другу одновременно; когда защита падает до 0, карта погибает и уходит в Сброс. Младенец бьёт по пустой зоне."
+			message = _text("attack_two", "Атакуй обеими подготовленными картами. В бою существа наносят урон друг другу одновременно; когда защита падает до 0, карта погибает и уходит в Сброс. Младенец бьёт по пустой зоне.")
 			_highlight_table(jinn_uid)
 			_highlight_table(baby_uid)
 		Step.JAKE_SECOND_DIALOGUE:
-			_show_dialogue(JAKE_REPLY, "Как бы не так, Ботан Финн!")
+			_show_dialogue(JAKE_REPLY, _text("jake_reply", "Как бы не так, Ботан Финн!"))
 		Step.END_TWO:
-			message = "Джинн нанёс Дэну %d урона, а Дэн — Джинну %d. При защите 0 существо погибает и отправляется в Сброс. Младенец тоже атаковал Джейка. Заверши ход." % [
+			message = _text("end_two", "Джинн нанёс Дэну %d урона, а Дэн — Джинну %d. При защите 0 существо погибает и отправляется в Сброс. Младенец тоже атаковал Джейка. Заверши ход.") % [
 				jinn_attack_damage, archer_attack_damage]
 			_focus_control(board.main_button)
 		Step.KNIGHT_NOTICE:
-			message = "Кожурыцарь довольно силён и легко убивает Младенца. Посмотри на его свойство: за каждое кукурузное поле Джейка он получает +1 к атаке и +2 к защите."
+			message = _text("knight", "Кожурыцарь довольно силён и легко убивает Младенца. Посмотри на его свойство: за каждое кукурузное поле Джейка он получает +1 к атаке и +2 к защите.")
 			next_button.visible = true
 			_highlight_table(husker_uid)
-			_set_preview("husker_knight", "Кожурыцарь: +1 к атаке и +2 к защите за каждое кукурузное поле.")
+			_set_preview("husker_knight", _text("knight_preview", "Кожурыцарь: +1 к атаке и +2 к защите за каждое кукурузное поле."))
 		Step.KNIGHT_WAIT:
 			message = ""
 		Step.TURN_THREE:
-			message = "Попробуем ослабить Кожурыцаря и освоить комбинацию карт и способностей. В начале хода ты автоматически берёшь «Архитектора разума»."
+			message = _text("turn_three", "Попробуем ослабить Кожурыцаря и освоить комбинацию карт и способностей. В начале хода ты автоматически берёшь «Архитектора разума».")
 			next_button.visible = true
 			_focus_world(board.deck_pos(0), Vector2(130, 185))
 			for c in game.players[0].hand:
 				_highlight_table(c.uid)
 		Step.PIG:
-			message = "За 1 действие сыграй «Свинью» в свободную зону напротив неперевёрнутого кукурузного поля, не напротив Кожурыцаря."
+			message = _text("pig", "За 1 действие сыграй «Свинью» в свободную зону напротив неперевёрнутого кукурузного поля, не напротив Кожурыцаря.")
 			_highlight_hand("the_pig")
 			_highlight_open_lands([jinn_lane, baby_lane])
-			_set_preview("the_pig", "Радужное существо · стоимость 1 · ФЛЮП переворачивает кукурузное поле в этой зоне")
+			_set_preview("the_pig", _text("pig_preview", "Радужное существо · стоимость 1 · ФЛЮП переворачивает кукурузное поле в этой зоне"))
 		Step.FLOOP_PIG:
-			message = "ФЛЮП — активируемая способность: повернув существо набок, ты используешь её эффект, но оно перестаёт быть подготовленным и не атакует в этот ход. Всегда решай, что выгоднее. Сейчас наша цель — ослабить Кожурыцаря: флюпни Свинью, чтобы перевернуть поле напротив."
+			message = _text("floop_pig", "ФЛЮП — активируемая способность: повернув существо набок, ты используешь её эффект, но оно перестаёт быть подготовленным и не атакует в этот ход. Всегда решай, что выгоднее. Сейчас наша цель — ослабить Кожурыцаря: флюпни Свинью, чтобы перевернуть поле напротив.")
 			_highlight_table(pig_uid)
 			if pig_lane >= 0:
 				var a: Array = game.across(0, pig_lane)
 				board.tutorial_land_targets.append({"p": a[0], "lane": a[1]})
 			board.decor.queue_redraw()
 		Step.TELEPORT:
-			message = "«Телепорт» — заклинание: оно сразу перемещает существо, а затем отправляется в Сброс. Сыграй его за 0 действий, выбери Свинью и перенеси её в другую свободную зону напротив активного кукурузного поля."
+			message = _text("teleport", "«Телепорт» — заклинание: оно сразу перемещает существо, а затем отправляется в Сброс. Сыграй его за 0 действий, выбери Свинью и перенеси её в другую свободную зону напротив активного кукурузного поля.")
 			_highlight_hand("teleport")
 			if teleport_lane >= 0:
 				board.tutorial_land_targets.append({"p": 0, "lane": teleport_lane})
 			board.decor.queue_redraw()
-			_set_preview("teleport", "Заклинание · стоимость 0 · перемещает существо в свободную зону")
+			_set_preview("teleport", _text("teleport_preview", "Заклинание · стоимость 0 · перемещает существо в свободную зону"))
 		Step.HUSKER_STATS_ONE:
-			message = "Кукурузное поле перевёрнуто. Кожурыцарь ослаб: сейчас атака %d, защита %d. Нажми «Далее»." % [
+			message = _text("stats_one", "Кукурузное поле перевёрнуто. Кожурыцарь ослаб: сейчас атака %d, защита %d. Нажми «Далее».") % [
 				game.atk_of(1, baby_lane), game.def_of(1, baby_lane)]
 			next_button.visible = true
 			_highlight_table(husker_uid)
-			_set_preview("husker_knight", "Переворот поля немедленно уменьшил характеристики.")
+			_set_preview("husker_knight", _text("stats_one_preview", "Переворот поля немедленно уменьшил характеристики."))
 		Step.ARCHITECT:
-			message = "Вот бы Свинья могла флюпнуть ещё раз… Ого, у нас есть Архитектор разума! Когда он выходит на поле, его способность готовит флюпнутое существо. Сыграй Архитектора за последнее действие напротив Кожурыцаря и выбери Свинью."
+			message = _text("architect", "Вот бы Свинья могла флюпнуть ещё раз… Ого, у нас есть Архитектор разума! Когда он выходит на поле, его способность готовит флюпнутое существо. Сыграй Архитектора за последнее действие напротив Кожурыцаря и выбери Свинью.")
 			_highlight_hand("psionic_architect")
 			if baby_lane >= 0:
 				board.tutorial_land_targets.append({"p": 0, "lane": baby_lane})
 			board.decor.queue_redraw()
-			_set_preview("psionic_architect", "Существо · стоимость 1 · при входе готовит одно твоё флюпнутое существо")
+			_set_preview("psionic_architect", _text("architect_preview", "Существо · стоимость 1 · при входе готовит одно твоё флюпнутое существо"))
 		Step.FLOOP_AGAIN:
-			message = "Свинья снова готова. Флюпни её ещё раз, чтобы перевернуть второе кукурузное поле и ослабить Кожурыцаря."
+			message = _text("floop_again", "Свинья снова готова. Флюпни её ещё раз, чтобы перевернуть второе кукурузное поле и ослабить Кожурыцаря.")
 			_highlight_table(pig_uid)
 			if teleport_lane >= 0:
 				var a: Array = game.across(0, teleport_lane)
 				board.tutorial_land_targets.append({"p": a[0], "lane": a[1]})
 			board.decor.queue_redraw()
 			_highlight_table(husker_uid)
-			_set_preview("husker_knight", "После переворота полей его атака и защита уменьшаются.")
+			_set_preview("husker_knight", _text("floop_again_preview", "После переворота полей его атака и защита уменьшаются."))
 		Step.FINN_REACTION:
 			_show_reaction(FINN_LAUGH)
 		Step.HUSKER_STATS_TWO:
-			message = "Второе поле перевёрнуто! У Кожурыцаря осталось %d защиты, а атака Архитектора — %d. Даже Архитектор за 1 действие может победить Кожурыцаря, который стоит 2. Нажми «Далее»." % [
+			message = _text("stats_two", "Второе поле перевёрнуто! У Кожурыцаря осталось %d защиты, а атака Архитектора — %d. Даже Архитектор за 1 действие может победить Кожурыцаря, который стоит 2. Нажми «Далее».") % [
 				game.hp_of(1, baby_lane), game.atk_of(0, baby_lane)]
 			next_button.visible = true
 			_highlight_table(husker_uid)
-			_set_preview("husker_knight", "Кожурыцарь продолжает терять атаку и защиту.")
+			_set_preview("husker_knight", _text("stats_two_preview", "Кожурыцарь продолжает терять атаку и защиту."))
 		Step.BEGIN_BATTLE_THREE:
-			message = "Перейди в фазу боя. Свинья повёрнута и не атакует."
+			message = _text("battle_three", "Перейди в фазу боя. Свинья повёрнута и не атакует.")
 			_focus_control(board.main_button)
 		Step.ATTACK_THREE:
-			message = "Атакуй подготовленными существами: Архитектором напротив Кожурыцаря и другими готовыми существами. Урон в бою наносится одновременно."
+			message = _text("attack_three", "Атакуй подготовленными существами: Архитектором напротив Кожурыцаря и другими готовыми существами. Урон в бою наносится одновременно.")
 			_highlight_table(jinn_uid)
 			_highlight_table(architect_uid)
 			_highlight_table(husker_uid)
 		Step.JAKE_CORN_DIALOGUE:
-			_show_dialogue(JAKE_YELL, "МОЯ КУКУРУЗА!")
+			_show_dialogue(JAKE_YELL, _text("jake_corn", "МОЯ КУКУРУЗА!"))
 		Step.END_THREE:
-			message = "Все готовые существа атаковали. Заверши ход."
+			message = _text("end_three", "Все готовые существа атаковали. Заверши ход.")
 			_focus_control(board.main_button)
 		Step.JAKE_FINAL_NOTICE:
-			message = "Джейк выставил «Кукутузика» напротив Джинна и «Стену початков» напротив Архитектора. Теперь он переходит к бою."
+			message = _text("jake_final", "Джейк выставил «Кукутузика» напротив Джинна и «Стену початков» напротив Архитектора. Теперь он переходит к бою.")
 			next_button.visible = true
 			_highlight_table(corn_dog_uid)
 			_highlight_table(wall_of_ears_uid)
 		Step.JAKE_FINAL_WAIT:
 			message = ""
 		Step.WALL_HIT_NOTICE:
-			message = "Стена початков атакует Архитектора на 2 урона. У Архитектора осталось %d здоровья. Если оставить его, он погибнет, атакуя Стену, а на следующем ходу Стена сможет ударить прямо по тебе. Замени Архитектора Крутым псом в этой зоне." % game.hp_of(0, baby_lane)
+			message = _text("wall_hit", "Стена початков атакует Архитектора на 2 урона. У Архитектора осталось %d здоровья. Если оставить его, он погибнет, атакуя Стену, а на следующем ходу Стена сможет ударить прямо по тебе. Замени Архитектора Крутым псом в этой зоне.") % game.hp_of(0, baby_lane)
 			next_button.visible = true
 			_highlight_table(wall_of_ears_uid)
 			_highlight_table(architect_uid)
 			_highlight_hand("cool_dog")
-			_set_preview("cool_dog", "Существо · стоимость 2 · атака 2 · защита 7")
+			_set_preview("cool_dog", _text("dog_preview", "Существо · стоимость 2 · атака 2 · защита 7"))
 		Step.WALL_HIT_WAIT:
 			message = ""
 		Step.REPLACE_ARCHITECT:
-			message = "Сыграй «Крутого пса» вместо Архитектора в этой зоне. Архитектор отправится в Сброс, а новый защитник не позволит Стене початков выйти на прямую атаку."
+			message = _text("replace", "Сыграй «Крутого пса» вместо Архитектора в этой зоне. Архитектор отправится в Сброс, а новый защитник не позволит Стене початков выйти на прямую атаку.")
 			_highlight_hand("cool_dog")
 			_highlight_table(architect_uid)
 			_highlight_table(wall_of_ears_uid)
 			board.tutorial_land_targets.append({"p": 0, "lane": baby_lane})
 			board.decor.queue_redraw()
-			_set_preview("cool_dog", "Существо · стоимость 2 · атака 2 · защита 7")
+			_set_preview("cool_dog", _text("dog_preview", "Существо · стоимость 2 · атака 2 · защита 7"))
 		Step.BEGIN_BATTLE_FINAL:
-			message = "Крутой пёс заменил Архитектора. Перейди в фазу боя и атакуй всеми подготовленными существами."
+			message = _text("battle_final", "Крутой пёс заменил Архитектора. Перейди в фазу боя и атакуй всеми подготовленными существами.")
 			_focus_control(board.main_button)
 		Step.ATTACK_FINAL:
-			message = "Атакуй всеми подготовленными существами: Крутым псом напротив Стены початков, Джинном напротив Кукутузика и Свиньёй."
+			message = _text("attack_final", "Атакуй всеми подготовленными существами: Крутым псом напротив Стены початков, Джинном напротив Кукутузика и Свиньёй.")
 			_highlight_table(cool_dog_uid)
 			_highlight_table(jinn_uid)
 			_highlight_table(pig_uid)
 		Step.JAKE_FINAL_DIALOGUE:
-			_show_dialogue(JAKE_YELL, "Финн мухлюет! Я ухожу!", true)
+			_show_dialogue(JAKE_YELL, _text("jake_final_dialogue", "Финн мухлюет! Я ухожу!"), true)
 		Step.ARCHER_SUMMARY:
 			var jinn = game.players[0].creatures[jinn_lane]
 			var archer = game.players[1].creatures[jinn_lane]
 			var jinn_hit: int = game.combat_atk(0, jinn_lane, archer, jinn_lane, true)
 			var archer_hit: int = game.combat_atk(1, jinn_lane, jinn, jinn_lane, false)
-			message = "Джейк выставил Лучника Дэна напротив Джинна. Они сразились одновременно: Джинн нанёс Дэну %d урона, а Дэн — Джинну %d. Теперь у Джинна %d из %d защиты, у Дэна — %d из %d. При защите 0 существо погибает и отправляется в Сброс." % [
+			message = _text("archer_summary", "Джейк выставил Лучника Дэна напротив Джинна. Они сразились одновременно: Джинн нанёс Дэну %d урона, а Дэн — Джинну %d. Теперь у Джинна %d из %d защиты, у Дэна — %d из %d. При защите 0 существо погибает и отправляется в Сброс.") % [
 				jinn_hit, archer_hit, game.hp_of(0, jinn_lane), game.def_of(0, jinn_lane),
 				game.hp_of(1, jinn_lane), game.def_of(1, jinn_lane)]
 			next_button.visible = true
@@ -780,12 +843,12 @@ func allow_choice(req: Dictionary, result) -> bool:
 
 
 func reject_command() -> void:
-	guide_text.text += "\nСейчас выполни действие, выделенное подсветкой."
+	guide_text.text += "\n" + _text("reject_command", "Сейчас выполни действие, выделенное подсветкой.")
 
 
 func reject_choice() -> void:
 	if board.prompt_label != null:
-		board.prompt_label.text = "Выбери подсвеченную цель."
+		board.prompt_label.text = _text("reject_choice", "Выбери подсвеченную цель.")
 
 
 func hold_combat_end(p: int) -> bool:
@@ -804,20 +867,20 @@ func on_game_event(event: Dictionary) -> void:
 			if int(event.get("p", -1)) == 0:
 				finn_turns += 1
 				if finn_turns == 1:
-					_update_phase("Первый ход: подготовь карты и восстанови 2 действия. В руке уже ровно 5 карт.")
+					_update_phase(_text("phase_first", "Первый ход: подготовь карты и восстанови 2 действия. В руке уже ровно 5 карт."))
 				elif finn_turns == 2:
-					_update_phase("Начало хода: подготовь повёрнутые карты, восстанови 2 действия и возьми 1 карту.")
+					_update_phase(_text("phase_start", "Начало хода: подготовь повёрнутые карты, восстанови 2 действия и возьми 1 карту."))
 					_set_step(Step.DRAW_TWO)
 				elif finn_turns == 3:
-					_update_phase("Начало хода: подготовь повёрнутые карты, восстанови 2 действия и возьми 1 карту.")
+					_update_phase(_text("phase_start", "Начало хода: подготовь повёрнутые карты, восстанови 2 действия и возьми 1 карту."))
 					_set_step(Step.TURN_THREE)
 				elif finn_turns == 4:
-					_update_phase("Начало хода: подготовь повёрнутые карты, восстанови 2 действия и возьми 1 карту.")
+					_update_phase(_text("phase_start", "Начало хода: подготовь повёрнутые карты, восстанови 2 действия и возьми 1 карту."))
 					_set_step(Step.REPLACE_ARCHITECT)
 			else:
-				_update_phase("Начало хода: подготовь повёрнутые карты, восстанови 2 действия и возьми 1 карту.")
+				_update_phase(_text("phase_start", "Начало хода: подготовь повёрнутые карты, восстанови 2 действия и возьми 1 карту."))
 		"actions":
-			_update_phase("Фаза действий и способностей: разыгрывай существ, строения и заклинания; добор за действие и ФЛЮП можно делать в любом порядке.")
+			_update_phase(_text("phase_actions", "Фаза действий и способностей: разыгрывай существ, строения и заклинания; добор за действие и ФЛЮП можно делать в любом порядке."))
 		"draw":
 			if int(event.get("p", -1)) == 0 \
 					and (step == Step.DRAW_TWO or step == Step.TURN_THREE):
@@ -825,11 +888,11 @@ func on_game_event(event: Dictionary) -> void:
 		"phase":
 			match event.get("phase", game.phase):
 				"attack":
-					_update_phase("Фаза боя: все подготовленные существа обязаны атаковать.")
+					_update_phase(_text("phase_attack", "Фаза боя: все подготовленные существа обязаны атаковать."))
 				"handoff":
-					_update_phase("Конец хода: передай ход сопернику.")
+					_update_phase(_text("phase_end", "Конец хода: передай ход сопернику."))
 				"main":
-					_update_phase("Фаза действий и способностей: разыгрывай карты, добирай за действие и используй ФЛЮП.")
+					_update_phase(_text("phase_main", "Фаза действий и способностей: разыгрывай карты, добирай за действие и используй ФЛЮП."))
 
 
 func after_ai_command(p: int, command: Dictionary) -> void:

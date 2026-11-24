@@ -2663,6 +2663,8 @@ func _show_preview() -> void:
 			v = _peek_view
 		hero = _peek_hero
 	if v == null and hero >= 0:
+		if tutorial != null:
+			tutorial.show_card_property("")
 		var ps = game.players[hero]
 		preview_rect.texture = _hero_card_texture(ps.hero_card, true)
 		var hc: Dictionary = CardDB.hero_card(ps.hero_card) if CardDB.has_hero_card(ps.hero_card) else {}
@@ -2673,14 +2675,20 @@ func _show_preview() -> void:
 		preview_info.text = info
 		return
 	if v == null or not v.face_up or v.card_id == "":
+		if tutorial != null:
+			tutorial.show_card_property("")
 		preview_rect.texture = null
 		preview_info.text = ""
 		return
 	if v.secret:
+		if tutorial != null:
+			tutorial.show_card_property("")
 		preview_rect.texture = null
 		preview_info.text = CardDB.get_def(v.card_id)["name"]
 		return
 	preview_rect.texture = CardView.texture_for(v.card_id)
+	if tutorial != null:
+		tutorial.show_card_property(v.card_id)
 	var w: Dictionary = game.where(v.uid)
 	var d := CardDB.get_def(v.card_id)
 	var info := CardDB.type_line(d)

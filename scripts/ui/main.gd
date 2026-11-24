@@ -13,6 +13,7 @@ signal _tl_setup_msg
 const Game = preload("res://scripts/core/game.gd")
 const Board = preload("res://scripts/ui/board.gd")
 const BasicTutorial = preload("res://scripts/ui/basic_tutorial.gd")
+const TutorialText = preload("res://scripts/ui/tutorial_text.gd")
 const CardView = preload("res://scripts/ui/card_view.gd")
 const CardBacks = preload("res://scripts/ui/card_backs.gd")
 const KeyNavScript = preload("res://scripts/ui/key_nav.gd")
@@ -523,6 +524,23 @@ func show_title() -> void:
 	var tutorial := WoodUI.button("Обучение", WoodUI.GOLD, 30, Vector2(bw, bh))
 	tutorial.pressed.connect(show_tutorial_menu)
 	buttons.add_child(tutorial)
+	var tutorial_english := WoodUI.label("Tutorial", 22, Color.WHITE, 4)
+	tutorial_english.name = "EnglishLabel"
+	tutorial_english.anchor_left = 0.03
+	tutorial_english.anchor_right = 0.27
+	tutorial_english.anchor_bottom = 1.0
+	tutorial_english.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	tutorial_english.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	tutorial.add_child(tutorial_english)
+	var tutorial_korean := WoodUI.label("튜토리얼", 22, Color.WHITE, 4)
+	tutorial_korean.name = "KoreanLabel"
+	tutorial_korean.label_settings.font = TutorialText.korean_font()
+	tutorial_korean.anchor_left = 0.73
+	tutorial_korean.anchor_right = 0.97
+	tutorial_korean.anchor_bottom = 1.0
+	tutorial_korean.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	tutorial_korean.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	tutorial.add_child(tutorial_korean)
 	var settings := WoodUI.button("Настройки", WoodUI.VIOLET, 30, Vector2(bw, bh))
 	settings.pressed.connect(show_settings)
 	buttons.add_child(settings)
@@ -663,7 +681,7 @@ func show_tutorial_menu() -> void:
 	var basic := WoodUI.button("Базовое обучение", WoodUI.GOLD, font_size, button_size)
 	basic.pressed.connect(func():
 		_close_overlay(root)
-		start_basic_tutorial())
+		show_tutorial_language_menu())
 	v.add_child(basic)
 	var advanced := WoodUI.button("Продвинутое обучение", UI.ORANGE, font_size, button_size)
 	advanced.disabled = true
@@ -676,7 +694,42 @@ func show_tutorial_menu() -> void:
 	_pop_in(v)
 
 
-func start_basic_tutorial() -> void:
+func show_tutorial_language_menu() -> void:
+	if _overlay_open:
+		return
+	var root := _overlay_root(Color(0.02, 0.01, 0.05, 0.6))
+	var center := FitCenter.new()
+	center.set_anchors_preset(Control.PRESET_FULL_RECT)
+	root.add_child(center)
+	var panel := PanelContainer.new()
+	panel.add_theme_stylebox_override("panel", _panel_box())
+	center.add_child(panel)
+	var v := VBoxContainer.new()
+	v.add_theme_constant_override("separation", 14)
+	panel.add_child(v)
+	var korean_font: Font = TutorialText.korean_font()
+	var title := WoodUI.label("Выберите язык / Select language / 언어 선택", 26, UI.CREAM, 4)
+	title.label_settings.font = korean_font
+	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	v.add_child(title)
+	var button_size := Vector2(340, Phone.TOUCH) if phone_layout else Vector2(440, 70)
+	for choice: Array in [["Русский", "ru"], ["English", "en"], ["한국어", "ko"]]:
+		var button := WoodUI.button(choice[0], WoodUI.GOLD, 28, button_size)
+		if choice[1] == "ko":
+			button.add_theme_font_override("font", korean_font)
+		button.pressed.connect(func():
+			_close_overlay(root)
+			start_basic_tutorial(choice[1]))
+		v.add_child(button)
+	var back := WoodUI.button("Назад", WoodUI.BACK, 28, Vector2(220, 62))
+	back.pressed.connect(func():
+		_close_overlay(root)
+		show_tutorial_menu())
+	v.add_child(back)
+	_pop_in(v)
+
+
+func start_basic_tutorial(language := "ru") -> void:
 	_clear_title()
 	if not await _wait_ai([[_ai_levels[1], "jake"]]):
 		return
@@ -696,7 +749,7 @@ func start_basic_tutorial() -> void:
 	var tutorial := BasicTutorial.new()
 	board.add_child(tutorial)
 	board.enable_ai(tutorial, 1, 0)
-	tutorial.start(game, board)
+	tutorial.start(game, board, language)
 	board.set_hands_hidden(false)
 	await board.run_engine(func(): await game.start_game())
 
