@@ -108,7 +108,13 @@ func _run() -> void:
 		Phone.active = old_phone
 		_check(TranslationServer.get_locale() == original_locale,
 				"tutorial language does not alter the game's global locale")
-		main.show_title()
+		tutor._set_step(tutor.Step.JAKE_FINAL_DIALOGUE)
+		if item[1] == "en":
+			tutor.dialogue_friend_button.pressed.emit()
+		else:
+			tutor.dialogue_jake_button.pressed.emit()
+		_check(main.board == null and main.game == null,
+				"final response immediately returns to the main menu")
 		await create_timer(0.3).timeout
 		_check(_button("Обучение") != null, "main menu remains in Russian after the tutorial")
 	quit(1 if failures > 0 else 0)

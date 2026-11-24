@@ -172,13 +172,8 @@ func _run_test() -> void:
 			and main.game.turn_number == 7 and main.game.phase == "attack",
 			"Jake's final scene offers both responses without continuing the match")
 	tutor.dialogue_friend_button.pressed.emit()
-	_check(tutor.dialogue_text.text.contains("Хороший друг")
-			and not tutor.dialogue_jake_button.visible
-			and not tutor.dialogue_friend_button.visible,
-			"the friendly response displays the Good Friend achievement")
-	await _wait_tutorial_exit()
 	_check(main.board == null and main.game == null,
-			"finishing the tutorial returns to the main menu")
+			"the friendly response immediately returns to the main menu")
 	quit(1 if failures > 0 else 0)
 
 
@@ -268,14 +263,6 @@ func _wait_message(tutor, text: String) -> void:
 			return
 		await create_timer(0.05).timeout
 	_check(false, "tutorial displayed message containing %s" % text)
-
-
-func _wait_tutorial_exit() -> void:
-	for i in 100:
-		if main.board == null and main.game == null:
-			return
-		await create_timer(0.05).timeout
-	_check(false, "tutorial returned to the main menu")
 
 
 func _check(condition: bool, description: String) -> void:

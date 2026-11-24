@@ -167,11 +167,11 @@ func _build_ui() -> void:
 	dialogue_next_button.pressed.connect(_advance)
 	dialogue_buttons.add_child(dialogue_next_button)
 	dialogue_jake_button = WoodUI.button(_text("jake_nerd", "Джейк Ботан!"), UI.ORANGE, 20, Vector2(300, 52))
-	dialogue_jake_button.pressed.connect(_choose_jake_response)
+	dialogue_jake_button.pressed.connect(_return_to_title)
 	dialogue_buttons.add_child(dialogue_jake_button)
 	dialogue_friend_button = WoodUI.button(
 			_text("friend", "Прости Джейк, давай сыграем еще"), UI.GREEN, 20, Vector2(440, 52))
-	dialogue_friend_button.pressed.connect(_choose_good_friend)
+	dialogue_friend_button.pressed.connect(_return_to_title)
 	dialogue_buttons.add_child(dialogue_friend_button)
 
 	if language == "en" or language == "ko":
@@ -279,25 +279,6 @@ func _show_reaction(character: Texture2D) -> void:
 	dialogue_next_button.visible = false
 	dialogue_jake_button.visible = false
 	dialogue_friend_button.visible = false
-
-
-func _choose_jake_response() -> void:
-	_return_to_title()
-
-
-func _choose_good_friend() -> void:
-	dialogue_character.visible = false
-	dialogue_panel.position = Vector2(350, 410)
-	dialogue_panel.custom_minimum_size = Vector2(1220, 220)
-	dialogue_panel.size = dialogue_panel.custom_minimum_size
-	dialogue_text.custom_minimum_size = Vector2(1170, 150)
-	dialogue_text.text = _text("achievement", "Получено достижение «Хороший друг»!")
-	dialogue_text.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	dialogue_next_button.visible = false
-	dialogue_jake_button.visible = false
-	dialogue_friend_button.visible = false
-	await get_tree().create_timer(2.0).timeout
-	_return_to_title()
 
 
 func _return_to_title() -> void:
