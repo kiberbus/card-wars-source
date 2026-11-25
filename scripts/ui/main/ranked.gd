@@ -10,6 +10,7 @@ const UI = preload("res://scripts/ui/ui_kit.gd")
 const WoodUI = preload("res://scripts/ui/wood_ui.gd")
 const FitCenter = preload("res://scripts/ui/fit_center.gd")
 const Phone = preload("res://scripts/ui/phone.gd")
+const Leaderboard = preload("res://scripts/ui/main/leaderboard.gd")
 
 const RANK_COLORS := [Color(0.85, 0.55, 0.32), Color(0.78, 0.82, 0.88), Color(1.0, 0.8, 0.3), Color(0.5, 0.88, 1.0)]
 const GREY := Color(0.5, 0.5, 0.52)
@@ -43,8 +44,12 @@ var _until := 0                     # msec the phase ends here
 var _ticking := false
 
 
+var leaderboard: Leaderboard        # the «Лидерборд» window
+
+
 func _init(main: Main) -> void:
 	m = main
+	leaderboard = Leaderboard.new(main)
 
 
 ## Called once the social link exists (main.gd _ready).
@@ -173,6 +178,10 @@ func show_rank() -> void:
 		hint.text = ALL_RANKS_HINT)
 	all_ranks.mouse_entered.connect(func(): hint.text = ALL_RANKS_HINT)
 	all_ranks.mouse_exited.connect(func(): hint.text = "")
+	# «Лидерборд»: every player of the season by place (leaderboard.gd), over this window.
+	var top := WoodUI.button("Лидерборд", UI.ORANGE, 28, Vector2(340, 70))
+	top.pressed.connect(leaderboard.show)
+	ready_col.add_child(top)
 	var own_col := VBoxContainer.new()
 	own_col.add_theme_constant_override("separation", 10)
 	cols.add_child(own_col)
