@@ -2586,6 +2586,8 @@ func _hero_card_texture(id: String, big := false) -> Texture2D:
 		return null
 	if big:
 		var path := CardDB.hero_image(id)
+		if DisplayServer.get_name() == "headless":
+			return load(path)
 		if not _hero_pics.has(id):
 			_hero_pics[id] = load(path) if ResourceLoader.has_cached(path) 				else path if ResourceLoader.load_threaded_request(path) == OK else null
 		if _hero_pics[id] is String and ResourceLoader.load_threaded_get_status(path) != ResourceLoader.THREAD_LOAD_IN_PROGRESS:

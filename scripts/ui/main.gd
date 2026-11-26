@@ -313,6 +313,8 @@ func _ready() -> void:
 ## the land tiles of the table and the small hero cards (kept for the session, ~100 MB).
 func _warm_up() -> void:
 	AILevels.warm(_ai_levels[1])
+	if DisplayServer.get_name() == "headless":
+		return
 	var paths := []
 	for kind in CardDB.land_types():
 		for i in range(1, 5):
@@ -340,6 +342,8 @@ func _take_warmed() -> void:
 ## Starts reading a hero card's full picture while the heroes are picked: the curtains at
 ## the start of a game show it, and a load() there waited ~30 ms for it. The last few are kept.
 func _warm_hero_pic(card: String) -> void:
+	if DisplayServer.get_name() == "headless":
+		return
 	var path := CardDB.hero_image(card)
 	if _hero_pics.has(path) or ResourceLoader.has_cached(path) or ResourceLoader.load_threaded_request(path) != OK:
 		return

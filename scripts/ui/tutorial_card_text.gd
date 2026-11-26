@@ -1,6 +1,14 @@
 extends RefCounted
 
 const ADVANCED_TEXT := {
+	"furious_phoenix": {
+		"en": "Gets +1 attack for each fire token on creatures.",
+		"ko": "생물의 불 토큰마다 공격력 +1을 얻어.",
+	},
+	"fire_dog": {
+		"en": "When this creature enters play, you may deal damage to a chosen creature equal to the number of fire tokens on all creatures.",
+		"ko": "이 생물이 등장할 때 선택한 생물에게 모든 생물의 불 토큰 수만큼 피해를 줄 수 있어.",
+	},
 	"hot_shot": {
 		"en": "Set a chosen creature on fire and deal 1 additional damage to it.",
 		"ko": "선택한 생물에 불을 붙이고 추가로 피해 1을 줘.",

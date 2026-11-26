@@ -66,7 +66,8 @@ func current_texture() -> Texture2D:
 func _show_next(first := false) -> void:
 	_at = (_at + 1) % _order.size()
 	_show(PICTURES[_order[_at]], first)
-	ResourceLoader.load_threaded_request(PICTURES[_order[(_at + 1) % _order.size()]])
+	if DisplayServer.get_name() != "headless":
+		ResourceLoader.load_threaded_request(PICTURES[_order[(_at + 1) % _order.size()]])
 
 
 ## Fades a picture in over the one on screen; unless one is pinned the next one follows.

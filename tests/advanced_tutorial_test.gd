@@ -6,6 +6,7 @@ const TutorialCardText = preload("res://scripts/ui/tutorial_card_text.gd")
 const Phone = preload("res://scripts/ui/phone.gd")
 const Game = preload("res://scripts/core/game.gd")
 const AdvancedTutorial = preload("res://scripts/ui/advanced_tutorial.gd")
+const CardView = preload("res://scripts/ui/card_view.gd")
 
 signal command_done
 
@@ -65,6 +66,16 @@ func _run() -> void:
 		await create_timer(0.4).timeout
 		var tutor = main.board.tutorial
 		_check(tutor.lesson == tutor.FIRE and tutor.language == language, "fire lesson starts in " + language)
+		if DisplayServer.get_name() == "headless":
+			_check(main._warming.is_empty() and CardView._loading.is_empty(),
+					"tutorial does not start headless background texture loads")
+			_check(main.board._hero_card_texture("bmo", true) != null,
+					"BMO's hero card remains available in headless mode")
+		_check(main.game.players[0].hero_card == "finn" and main.game.players[1].hero_card == "bmo",
+				"Finn and BMO are the actual heroes")
+		await _dialogue(tutor, language, "intro_finn", "advanced_intro_finn")
+		await _dialogue(tutor, language, "intro_welcome", "advanced_intro_welcome", AdvancedTutorial.BMO_DEFAULT)
+		await _dialogue(tutor, language, "intro_bmo", "advanced_intro_fire", AdvancedTutorial.BMO_FIRE)
 		await _check_guide(tutor)
 		if language != "ru":
 			_check(tutor.guide_text.text == TutorialText.TEXT[language]["advanced_fire"], "fire instruction is translated")
@@ -95,9 +106,33 @@ func _run() -> void:
 				and tutor.guide_text.text.contains("Огненный пёс"), "fire examples retain card names")
 		await _check_guide(tutor)
 		tutor.next_button.pressed.emit()
+		_check(tutor.lesson_state == "practice_one", "fire has extra phoenix practice")
+		_check_translation(tutor, language, "advanced_fire_practice_one")
+		await _check_guide(tutor)
+		await _check_property(tutor, "furious_phoenix", language)
+		await _command({"cmd": "play", "uid": _hand_uid("furious_phoenix"), "lane": 3})
+		_check(tutor.lesson_state == "practice_two" and main.game.atk_of(0, 3) == 2,
+				"phoenix gains attack from a fire token")
+		_check_translation(tutor, language, "advanced_fire_practice_two")
+		await _check_guide(tutor)
+		await _check_property(tutor, "fire_dog", language)
+		_start_command({"cmd": "play", "uid": _hand_uid("fire_dog"), "lane": 2})
+		if not await _wait_choice("creature"):
+			quit(1)
+			return
+		_check(not tutor.allow_choice(main.board._choice, null), "fire dog choice cannot be skipped")
+		main.board._resolve_choice({"p": 1, "lane": 0})
+		await _wait_command()
+		_check(tutor.lesson_state == "practice_done" and target.damage == 3,
+				"fire dog deals damage based on fire tokens")
+		_check_translation(tutor, language, "advanced_fire_practice_done")
+		await _check_guide(tutor)
+		tutor.next_button.pressed.emit()
 		await create_timer(0.3).timeout
 		tutor = main.board.tutorial
 		_check(tutor.lesson == tutor.FROST and main.game.is_frozen(0, 0), "frost lesson starts frozen")
+		_check(main.game.players[1].hero_card == "bmo", "BMO remains the opponent for frost")
+		await _dialogue(tutor, language, "intro_bmo", "advanced_intro_frost", AdvancedTutorial.BMO_FROST)
 		var existing = main.game.players[0].creatures[1]
 		_check(existing != null and main.game.is_frozen(0, 1), "a creature remains on a frozen land")
 		await main.board.run_engine(func():
@@ -109,13 +144,10 @@ func _run() -> void:
 		await _check_guide(tutor)
 		var baby = main.game.players[0].hand[1]
 		_check(not main.game.can_play(0, baby.uid, 0), "frozen land blocks playing a creature")
-		var building = main.game._take_tutorial_card(main.game.players[0].deck, "blood_fortress")
+		var building = main.game.card(_hand_uid("blood_fortress"))
 		_check(building != null, "frost scenario has a building available for the rules check")
 		if building != null:
-			main.game.players[0].hand.append(building)
 			_check(main.game.can_play(0, building.uid, 0), "frozen land still permits buildings")
-			main.game.players[0].hand.erase(building)
-			main.game.players[0].deck.append(building)
 		main.board._frozen_land(0)
 		_check(_button("Растопить лёд: сбросить карту") != null, "frozen land offers the thaw action")
 		main.board.context_menu.visible = false
@@ -137,8 +169,28 @@ func _run() -> void:
 		_check_translation(tutor, language, "advanced_frost_done")
 		await _check_guide(tutor)
 		tutor.next_button.pressed.emit()
+		_check(tutor.lesson_state == "practice_one", "frost has extra building practice")
+		_check_translation(tutor, language, "advanced_frost_practice_one")
+		await _check_guide(tutor)
+		await _command({"cmd": "play", "uid": building.uid, "lane": 1})
+		_check(tutor.lesson_state == "practice_two" and main.game.is_frozen(0, 1)
+				and not main.game.buildings_at(0, 1).is_empty(), "building is played on frozen land")
+		_check_translation(tutor, language, "advanced_frost_practice_two")
+		await _check_guide(tutor)
+		main.board._frozen_land(1)
+		_check(_button("Растопить лёд: сбросить карту") != null,
+				"occupied frozen land offers the thaw action")
+		main.board.context_menu.visible = false
+		await _command({"cmd": "thaw", "lane": 1})
+		_check(tutor.lesson_state == "practice_done" and not main.game.is_frozen(0, 1)
+				and main.game.players[0].creatures[1] == existing, "second thaw keeps the creature")
+		_check_translation(tutor, language, "advanced_frost_practice_done")
+		await _check_guide(tutor)
+		tutor.next_button.pressed.emit()
 		await create_timer(0.3).timeout
 		tutor = main.board.tutorial
+		_check(main.game.players[1].hero_card == "bmo", "BMO remains the opponent for gobble")
+		await _dialogue(tutor, language, "intro_bmo", "advanced_intro_gobble", AdvancedTutorial.BMO_GOBBLE)
 		var old = main.game.players[0].creatures[0]
 		var replacement = main.game.players[0].hand[0]
 		_check(tutor.lesson == tutor.GOBBLE and main.game.gobbles(old), "gobble lesson starts with a gobble creature")
@@ -161,9 +213,33 @@ func _run() -> void:
 		_check_translation(tutor, language, "advanced_gobble_details")
 		await _check_guide(tutor)
 		tutor.next_button.pressed.emit()
+		_check(tutor.lesson_state == "practice_one", "gobble has extra floop practice")
+		_check_translation(tutor, language, "advanced_gobble_practice_one")
+		await _check_guide(tutor)
+		_start_command({"cmd": "floop", "kind": "creature", "lane": 1})
+		if not await _wait_choice("creature"):
+			quit(1)
+			return
+		main.board._resolve_choice({"p": 0, "lane": 0})
+		await _wait_command()
+		_check(tutor.lesson_state == "practice_two" and main.game.tokens(replacement, "atk_tok") == 1,
+				"gobble creature receives an attack token")
+		_check_translation(tutor, language, "advanced_gobble_practice_two")
+		await _check_guide(tutor)
+		await _command({"cmd": "play", "uid": _hand_uid("darling_cobnoblin"), "lane": 0})
+		var final_creature = main.game.players[0].creatures[0]
+		_check(tutor.lesson_state == "practice_done" and final_creature.under.has(replacement)
+				and main.game.atk_of(0, 0) == 6 and main.game.def_of(0, 0) == 10
+				and main.game.tokens(final_creature, "atk_tok") == 1,
+				"gobble triggers a second time and transfers accumulated stats")
+		_check_translation(tutor, language, "advanced_gobble_practice_done")
+		await _check_guide(tutor)
+		tutor.next_button.pressed.emit()
 		await create_timer(0.3).timeout
 		tutor = main.board.tutorial
 		_check(tutor.lesson == tutor.FLIP, "flipped-land lesson starts")
+		_check(main.game.players[1].hero_card == "bmo", "BMO remains the opponent for flipping")
+		await _dialogue(tutor, language, "intro_bmo", "advanced_intro_flip", AdvancedTutorial.BMO_DEFAULT)
 		_check_translation(tutor, language, "advanced_flip")
 		await _check_guide(tutor)
 		_check(main.game.land_count(1, "corn") == 4 and main.game.atk_of(1, 1) == 4
@@ -171,7 +247,14 @@ func _run() -> void:
 		var opposite = main.game.players[1].creatures[0]
 		_check(not tutor.allow_command(0, {"cmd": "floop", "kind": "creature", "lane": 0, "hero": true}),
 				"the lesson requires the pig's own floop")
-		await _command({"cmd": "floop", "kind": "creature", "lane": 0})
+		_start_command({"cmd": "floop", "kind": "creature", "lane": 0})
+		if not await _wait_choice("land"):
+			quit(1)
+			return
+		_check(not tutor.allow_choice(main.board._choice, {"p": 0, "lane": 0}),
+				"first flip requires BMO's land")
+		main.board._resolve_choice({"p": 1, "lane": 0})
+		await _wait_command()
 		_check(tutor.lesson_state == "complete" and main.game.players[1].lands[0]["flipped"]
 				and main.game.land_type(1, 0) == "" and main.game.land_count(1, "corn") == 3,
 				"pig flips the land and it stops counting as corn")
@@ -184,6 +267,28 @@ func _run() -> void:
 		_check_translation(tutor, language, "advanced_flip_details")
 		await _check_guide(tutor)
 		tutor.next_button.pressed.emit()
+		_check(tutor.lesson_state == "practice_one", "flipping has extra preparation practice")
+		_check_translation(tutor, language, "advanced_flip_practice_one")
+		await _check_guide(tutor)
+		_start_command({"cmd": "play", "uid": _hand_uid("psionic_architect"), "lane": 1})
+		if not await _wait_choice("creature"):
+			quit(1)
+			return
+		_check(not tutor.allow_choice(main.board._choice, null), "preparing the pig cannot be skipped")
+		main.board._resolve_choice({"p": 0, "lane": 0})
+		await _wait_command()
+		_check(tutor.lesson_state == "practice_two" and not main.game.players[0].creatures[0].flooped,
+				"architect readies the pig")
+		_check_translation(tutor, language, "advanced_flip_practice_two")
+		await _check_guide(tutor)
+		await _command({"cmd": "floop", "kind": "creature", "lane": 0})
+		_check(tutor.lesson_state == "practice_done" and main.game.players[0].lands[0]["flipped"],
+				"pig flips the player's land")
+		_check_translation(tutor, language, "advanced_flip_practice_done")
+		await _check_guide(tutor)
+		tutor.next_button.pressed.emit()
+		await _dialogue(tutor, language, "outro_finn", "advanced_outro_finn")
+		await _dialogue(tutor, language, "outro_bmo", "advanced_outro_bmo", AdvancedTutorial.BMO_DEFAULT)
 		await create_timer(0.3).timeout
 		_check(main.board == null and main.game == null and _button("Обучение") != null,
 				"finishing returns to the main menu")
@@ -220,6 +325,34 @@ func _check_gobble_mechanics() -> void:
 func _check_translation(tutor, language: String, key: String) -> void:
 	if language != "ru":
 		_check(tutor.guide_text.text == TutorialText.TEXT[language][key], key + " uses the selected language")
+
+
+func _dialogue(tutor, language: String, state: String, key: String, portrait: Texture2D = null) -> void:
+	_check(tutor.lesson_state == state and tutor.dialogue_layer.visible, state + " dialogue is visible")
+	_check(tutor.dialogue_character.visible == (portrait != null)
+			and tutor.dialogue_character.texture == portrait, state + " uses the requested portrait")
+	if language != "ru":
+		_check(tutor.dialogue_text.text == TutorialText.TEXT[language][key], key + " is translated")
+	await process_frame
+	await process_frame
+	_check(tutor.dialogue_text.get_visible_line_count() == tutor.dialogue_text.get_line_count(),
+			state + " dialogue fits its panel")
+	var old_phone := Phone.active
+	Phone.active = true
+	main.board.set_side_room(0.0, true)
+	await process_frame
+	await process_frame
+	_check(tutor.dialogue_text.get_visible_line_count() == tutor.dialogue_text.get_line_count(),
+			state + " dialogue fits on phone")
+	Phone.active = old_phone
+	tutor.dialogue_next_button.pressed.emit()
+
+
+func _hand_uid(id: String) -> int:
+	for card in main.game.players[0].hand:
+		if card.id == id:
+			return card.uid
+	return -1
 
 
 func _check_property(tutor, id: String, language: String) -> void:
