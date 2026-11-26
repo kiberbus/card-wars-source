@@ -73,7 +73,7 @@ func _run() -> void:
 					"BMO's hero card remains available in headless mode")
 		_check(main.game.players[0].hero_card == "finn" and main.game.players[1].hero_card == "bmo",
 				"Finn and BMO are the actual heroes")
-		await _dialogue(tutor, language, "intro_finn", "advanced_intro_finn")
+		await _dialogue(tutor, language, "intro_finn", "advanced_intro_finn", AdvancedTutorial.FINN_ADVANCED)
 		await _dialogue(tutor, language, "intro_welcome", "advanced_intro_welcome", AdvancedTutorial.BMO_DEFAULT)
 		await _dialogue(tutor, language, "intro_bmo", "advanced_intro_fire", AdvancedTutorial.BMO_FIRE)
 		await _check_guide(tutor)
@@ -237,6 +237,68 @@ func _run() -> void:
 		tutor.next_button.pressed.emit()
 		await create_timer(0.3).timeout
 		tutor = main.board.tutorial
+		_check(tutor.lesson == tutor.WHUMP and main.game.players[1].hero_card == "bmo",
+				"whump follows gobble with BMO as the opponent")
+		await _dialogue(tutor, language, "intro_bmo", "advanced_intro_whump", AdvancedTutorial.BMO_GOBBLE)
+		_check_translation(tutor, language, "advanced_whump")
+		await _check_guide(tutor)
+		await _check_property(tutor, "genteel_armourdillo", language)
+		await _check_property(tutor, "valiant_armourdillo", language)
+		var old_armourdillo = main.game.players[0].creatures[0]
+		var valiant = main.game.card(_hand_uid("valiant_armourdillo"))
+		_check(main.game.cost_of(0, valiant) == 5 and main.game.cost_of(0, valiant, 0) == 2
+				and not main.game.can_play(0, valiant.uid, 2) and main.game.can_play(0, valiant.uid, 0),
+				"whump makes the 5-cost creature playable for 2 when replacing a 3-cost creature")
+		main.board._select(valiant.uid)
+		_check(main.board._selected_uid == valiant.uid, "discounted armourdillo can be selected in the UI")
+		main.board._clear_selection()
+		_check(not tutor.allow_command(0, {"cmd": "play", "uid": valiant.uid, "lane": 2}),
+				"whump requires the highlighted lane")
+		await _command({"cmd": "play", "uid": valiant.uid, "lane": 0})
+		_check(tutor.lesson_state == "complete" and main.game.players[0].actions == 0
+				and main.game.players[0].discard.has(old_armourdillo) and valiant.under.is_empty()
+				and main.game.players[1].creatures[0] == null,
+				"whump pays 2, discards the old creature and triggers the entry ability")
+		_check_translation(tutor, language, "advanced_whump_done")
+		await _check_guide(tutor)
+		tutor.next_button.pressed.emit()
+		_check(tutor.lesson_state == "details", "whump explains printed costs and replacement")
+		_check_translation(tutor, language, "advanced_whump_details")
+		await _check_guide(tutor)
+		tutor.next_button.pressed.emit()
+		_check(tutor.lesson_state == "practice_one", "whump has extra replacement practice")
+		_check_translation(tutor, language, "advanced_whump_practice_one")
+		await _check_guide(tutor)
+		await _check_property(tutor, "courageous_armourdillo", language)
+		var courageous = main.game.card(_hand_uid("courageous_armourdillo"))
+		_check(main.game.cost_of(0, courageous, 0) == 0 and main.game.can_play(0, courageous.uid, 0),
+				"whump uses printed cost and cannot go below zero")
+		_check(main.game.lands_needed(0, courageous, 0) == 1,
+				"a free whump creature still requires one matching land")
+		main.board._select(courageous.uid)
+		_check(main.board._selected_uid == courageous.uid, "free armourdillo can be selected in the UI")
+		main.board._clear_selection()
+		await _command({"cmd": "play", "uid": courageous.uid, "lane": 0})
+		_check(tutor.lesson_state == "practice_two" and main.game.players[0].actions == 0
+				and main.game.players[0].discard.has(valiant) and courageous.under.is_empty(),
+				"second whump replacement is free and does not inherit stats")
+		_check_translation(tutor, language, "advanced_whump_practice_two")
+		await _check_guide(tutor)
+		_start_command({"cmd": "floop", "kind": "creature", "lane": 1})
+		if not await _wait_choice("creature"):
+			quit(1)
+			return
+		_check(not tutor.allow_choice(main.board._choice, {"p": 0, "lane": 1}),
+				"whump practice requires the armourdillo as the target")
+		main.board._resolve_choice({"p": 0, "lane": 0})
+		await _wait_command()
+		_check(tutor.lesson_state == "practice_done" and main.game.tokens(courageous, "atk_tok") == 1,
+				"whump practice applies the attack token")
+		_check_translation(tutor, language, "advanced_whump_practice_done")
+		await _check_guide(tutor)
+		tutor.next_button.pressed.emit()
+		await create_timer(0.3).timeout
+		tutor = main.board.tutorial
 		_check(tutor.lesson == tutor.FLIP, "flipped-land lesson starts")
 		_check(main.game.players[1].hero_card == "bmo", "BMO remains the opponent for flipping")
 		await _dialogue(tutor, language, "intro_bmo", "advanced_intro_flip", AdvancedTutorial.BMO_DEFAULT)
@@ -287,7 +349,7 @@ func _run() -> void:
 		_check_translation(tutor, language, "advanced_flip_practice_done")
 		await _check_guide(tutor)
 		tutor.next_button.pressed.emit()
-		await _dialogue(tutor, language, "outro_finn", "advanced_outro_finn")
+		await _dialogue(tutor, language, "outro_finn", "advanced_outro_finn", AdvancedTutorial.FINN_ADVANCED)
 		await _dialogue(tutor, language, "outro_bmo", "advanced_outro_bmo", AdvancedTutorial.BMO_DEFAULT)
 		await create_timer(0.3).timeout
 		_check(main.board == null and main.game == null and _button("Обучение") != null,

@@ -3,7 +3,9 @@ extends "res://scripts/ui/basic_tutorial.gd"
 const FIRE := 0
 const FROST := 1
 const GOBBLE := 2
-const FLIP := 3
+const WHUMP := 3
+const FLIP := 4
+const FINN_ADVANCED := preload("res://assets/tutorial/characters/finn_advanced.png")
 const BMO_DEFAULT := preload("res://assets/tutorial/characters/bmo_default.png")
 const BMO_FIRE := preload("res://assets/tutorial/characters/bmo_fire.png")
 const BMO_FROST := preload("res://assets/tutorial/characters/bmo_frost.png")
@@ -17,7 +19,7 @@ static func prepare(g, number: int) -> bool:
 	if number < FIRE or number > FLIP:
 		push_error("Advanced tutorial: invalid lesson %d." % number)
 		return false
-	var deck := "flame_princess" if number == FIRE else ("fern" if number == GOBBLE else "finn")
+	var deck := "flame_princess" if number == FIRE else ("fern" if number in [GOBBLE, WHUMP] else "finn")
 	var player_pick := deck if deck == "finn" else deck + "@finn"
 	g.setup([player_pick, "bmo"], 0, 1, false)
 	g.phase = "main"
@@ -58,6 +60,17 @@ static func prepare(g, number: int) -> bool:
 		g.players[0].creatures[0] = old
 		g.players[0].creatures[1] = next_creature
 		g.players[0].hand.append_array([replacement, g._make_card("darling_cobnoblin", 0)])
+	elif number == WHUMP:
+		var old = g._take_tutorial_card(g.players[0].deck, "genteel_armourdillo")
+		var replacement = g._take_tutorial_card(g.players[0].deck, "valiant_armourdillo")
+		var next_creature = g._take_tutorial_card(g.players[0].deck, "courageous_armourdillo")
+		var helper = g._take_tutorial_card(g.players[0].deck, "darling_cobnoblin")
+		if old == null or replacement == null or next_creature == null or helper == null:
+			return false
+		g.players[0].creatures[0] = old
+		g.players[0].creatures[1] = helper
+		g.players[0].hand.append_array([replacement, next_creature])
+		g.players[1].creatures[0] = g._make_card("evil_eye", 1)
 	else:
 		var pig = g._take_tutorial_card(g.players[0].deck, "the_pig")
 		var architect = g._take_tutorial_card(g.players[0].deck, "psionic_architect")
@@ -89,24 +102,25 @@ func _show_lesson(state: String) -> void:
 	lesson_state = state
 	_clear_focus()
 	if state == "intro_finn":
-		_show_story_dialogue(null, _text("advanced_intro_finn", "Бимо, научи меня лучше играть в Карточные войны!"))
+		_show_story_dialogue(FINN_ADVANCED, _text("advanced_intro_finn", "Бимо, научи меня лучше играть в Карточные войны!"))
 		return
 	if state == "intro_welcome":
 		_show_story_dialogue(BMO_DEFAULT, _text("advanced_intro_welcome", "Конечно, Финн! Я покажу тебе несколько хитростей."))
 		return
 	if state == "intro_bmo":
-		var keys := ["advanced_intro_fire", "advanced_intro_frost", "advanced_intro_gobble", "advanced_intro_flip"]
+		var keys := ["advanced_intro_fire", "advanced_intro_frost", "advanced_intro_gobble", "advanced_intro_whump", "advanced_intro_flip"]
 		var lines := [
 			"Начнём с огня!",
 			"Отлично! Теперь разберёмся с морозом.",
 			"Здорово! А теперь узнаем, как работает Хрум.",
+			"А теперь познакомимся с Бухом броненосцев!",
 			"Осталась ещё одна хитрость: переворот земель!",
 		]
-		var portraits := [BMO_FIRE, BMO_FROST, BMO_GOBBLE, BMO_DEFAULT]
+		var portraits := [BMO_FIRE, BMO_FROST, BMO_GOBBLE, BMO_GOBBLE, BMO_DEFAULT]
 		_show_story_dialogue(portraits[lesson], _text(keys[lesson], lines[lesson]))
 		return
 	if state == "outro_finn":
-		_show_story_dialogue(null, _text("advanced_outro_finn", "Спасибо, Бимо! Теперь я лучше понимаю эти хитрости."))
+		_show_story_dialogue(FINN_ADVANCED, _text("advanced_outro_finn", "Спасибо, Бимо! Теперь я лучше понимаю эти хитрости."))
 		return
 	if state == "outro_bmo":
 		_show_story_dialogue(BMO_DEFAULT, _text("advanced_outro_bmo", "Ты отлично потренировался, Финн! Удачи в игре с Джейком!"))
@@ -125,6 +139,9 @@ func _show_lesson(state: String) -> void:
 			GOBBLE:
 				guide_text.text = _text("advanced_gobble_done", "Хрум срабатывает при замене существа с этим свойством. Оно ложится под новое: его базовые характеристики и постоянные бонусы прибавляются к новым. Здесь 2/3 + 1/4 = 3/7.")
 				_highlight_table(game.players[0].creatures[0].uid)
+			WHUMP:
+				guide_text.text = _text("advanced_whump_done", "Бух уменьшил стоимость Доблестного с 5 до 2: 5 минус 3, стоимость заменённого существа. Его способность уничтожила существо Бимо.")
+				_highlight_table(game.players[0].creatures[0].uid)
 			FLIP:
 				guide_text.text = _text("advanced_flip_done", "Земля перевёрнута и больше не считается кукурузным полем. Существо на ней осталось; у Кожурыцаря стало меньше атаки и защиты.")
 				_highlight_table(game.players[1].creatures[0].uid)
@@ -136,6 +153,8 @@ func _show_lesson(state: String) -> void:
 			GOBBLE:
 				guide_text.text = _text("advanced_gobble_details", "Урон и жетоны тоже переходят новому существу, но способности старого не переходят. Когда новое существо покидает игру, карта под ним уходит в сброс.")
 				_highlight_table(game.players[0].creatures[0].uid)
+			WHUMP:
+				guide_text.text = _text("advanced_whump_details", "Бух учитывает стоимость на заменяемой карте и уменьшает требование к числу земель. Сам по себе он не передаёт характеристики: обычное существо уходит в сброс, в отличие от Хрум.")
 			FLIP:
 				guide_text.text = _text("advanced_flip_details", "Перевёрнутая земля не считается ни за какой тип при розыгрыше карт. Она остаётся перевёрнутой, пока эффект не вернёт её лицом вверх.")
 	elif state == "practice_done":
@@ -146,6 +165,8 @@ func _show_lesson(state: String) -> void:
 				guide_text.text = _text("advanced_frost_practice_done", "Строение можно поставить на замёрзшую землю, а лёд убрать позже. Существо при этом осталось на месте.")
 			GOBBLE:
 				guide_text.text = _text("advanced_gobble_practice_done", "Снова сработал Хрум: новое существо получило характеристики предыдущего, включая уже прибавленные бонусы.")
+			WHUMP:
+				guide_text.text = _text("advanced_whump_practice_done", "Молодец! Даже бесплатному существу нужного типа требуется хотя бы одна подходящая открытая земля. Жетон усилил Отважного.")
 			FLIP:
 				guide_text.text = _text("advanced_flip_practice_done", "Свинья может перевернуть подходящее поле любой стороны в своей зоне. Перевёрнутое поле больше не считается кукурузным.")
 	elif state == "practice_one":
@@ -162,6 +183,11 @@ func _show_lesson(state: String) -> void:
 				guide_text.text = _text("advanced_gobble_practice_one", "Флюпни «Милого початкогоблина» в соседней зоне и положи жетон атаки на Драгоценнейшего.")
 				_highlight_table(game.players[0].creatures[0].uid)
 				_highlight_table(game.players[0].creatures[1].uid)
+			WHUMP:
+				guide_text.text = _text("advanced_whump_practice_one", "Сыграй «Отважного броненосца» поверх Доблестного. Его стоимость 3, а указанная стоимость Доблестного — 5, поэтому розыгрыш бесплатен.")
+				_highlight_hand("courageous_armourdillo")
+				_highlight_table(game.players[0].creatures[0].uid)
+				board.tutorial_land_targets.append({"p": 0, "lane": 0})
 			FLIP:
 				guide_text.text = _text("advanced_flip_practice_one", "Сыграй «Архитектор разума» в подсвеченную зону и выбери Свинью, чтобы подготовить её снова.")
 				_highlight_hand("psionic_architect")
@@ -183,6 +209,10 @@ func _show_lesson(state: String) -> void:
 				_highlight_hand("darling_cobnoblin")
 				_highlight_table(game.players[0].creatures[0].uid)
 				board.tutorial_land_targets.append({"p": 0, "lane": 0})
+			WHUMP:
+				guide_text.text = _text("advanced_whump_practice_two", "Флюпни «Милого початкогоблина» рядом и положи жетон атаки на Отважного броненосца.")
+				_highlight_table(game.players[0].creatures[0].uid)
+				_highlight_table(game.players[0].creatures[1].uid)
 			FLIP:
 				guide_text.text = _text("advanced_flip_practice_two", "Снова выбери «ФЛЮП» у Свиньи. На этот раз переверни своё кукурузное поле в её зоне.")
 				_highlight_table(game.players[0].creatures[0].uid)
@@ -203,6 +233,12 @@ func _show_lesson(state: String) -> void:
 		guide_text.text = _text("advanced_gobble", "Хрум: сыграй «Драгоценнейший початкогоблин» поверх «Милого початкогоблина» в подсвеченной зоне.")
 		_highlight_hand("treasured_cobnoblin")
 		_highlight_table(game.players[0].creatures[0].uid)
+		board.tutorial_land_targets.append({"p": 0, "lane": 0})
+	elif lesson == WHUMP:
+		guide_text.text = _text("advanced_whump", "Бух: сыграй «Доблестного броненосца» поверх Благородного. Замена уменьшит стоимость с 5 до 2 действий.")
+		_highlight_hand("valiant_armourdillo")
+		_highlight_table(game.players[0].creatures[0].uid)
+		_highlight_table(game.players[1].creatures[0].uid)
 		board.tutorial_land_targets.append({"p": 0, "lane": 0})
 	else:
 		guide_text.text = _text("advanced_flip", "Переворот земли: нажми на «Свинью» и выбери «ФЛЮП», чтобы перевернуть кукурузное поле напротив. Посмотри на характеристики Кожурыцаря.")
@@ -233,7 +269,7 @@ func _advance() -> void:
 	if lesson_state == "outro_bmo":
 		_return_to_title()
 		return
-	if lesson_state == "complete" and lesson in [FIRE, GOBBLE, FLIP]:
+	if lesson_state == "complete" and lesson in [FIRE, GOBBLE, WHUMP, FLIP]:
 		_show_lesson("details")
 	elif lesson_state == "details" or (lesson_state == "complete" and lesson == FROST):
 		_show_lesson("practice_one")
@@ -255,6 +291,8 @@ func allow_command(p: int, command: Dictionary) -> bool:
 					and game.can_thaw(0, 0)
 		if lesson == GOBBLE:
 			return _play_is(command, "treasured_cobnoblin") and int(command.get("lane", -1)) == 0
+		if lesson == WHUMP:
+			return _play_is(command, "valiant_armourdillo") and int(command.get("lane", -1)) == 0
 		return command.get("cmd") == "floop" and command.get("kind") == "creature" \
 				and int(command.get("lane", -1)) == 0 and not command.get("hero", false) \
 				and game.can_floop(0, "creature", 0)
@@ -268,6 +306,8 @@ func allow_command(p: int, command: Dictionary) -> bool:
 				return _play_is(command, "blood_fortress") and int(command.get("lane", -1)) == 1
 			GOBBLE:
 				return _own_floop(command, 1)
+			WHUMP:
+				return _play_is(command, "courageous_armourdillo") and int(command.get("lane", -1)) == 0
 			FLIP:
 				return _play_is(command, "psionic_architect") and int(command.get("lane", -1)) == 1
 	if lesson_state == "practice_two":
@@ -278,6 +318,8 @@ func allow_command(p: int, command: Dictionary) -> bool:
 				return command.get("cmd") == "thaw" and int(command.get("lane", -1)) == 1 and game.can_thaw(0, 1)
 			GOBBLE:
 				return _play_is(command, "darling_cobnoblin") and int(command.get("lane", -1)) == 0
+			WHUMP:
+				return _own_floop(command, 1)
 			FLIP:
 				return _own_floop(command)
 	return false
@@ -304,6 +346,8 @@ func allow_choice(req: Dictionary, result) -> bool:
 		return result is Dictionary and int(result.get("p", -1)) == 0 and int(result.get("lane", -1)) == 0
 	if lesson == GOBBLE and lesson_state == "practice_one" and req.get("kind") == "creature":
 		return result is Dictionary and int(result.get("p", -1)) == 0 and int(result.get("lane", -1)) == 0
+	if lesson == WHUMP and lesson_state == "practice_two" and req.get("kind") == "creature":
+		return result is Dictionary and int(result.get("p", -1)) == 0 and int(result.get("lane", -1)) == 0
 	if lesson == FLIP and lesson_state in ["action", "practice_two"] and req.get("kind") == "land":
 		var side := 1 if lesson_state == "action" else 0
 		return result is Dictionary and int(result.get("p", -1)) == side and int(result.get("lane", -1)) == 0
@@ -324,6 +368,10 @@ func command_resolved(p: int, command: Dictionary) -> void:
 		if creature != null and creature.id == "treasured_cobnoblin" \
 				and creature.under.any(func(c): return c.id == "darling_cobnoblin"):
 			_show_lesson("complete")
+	elif lesson == WHUMP and lesson_state == "action":
+		var creature = game.players[0].creatures[0]
+		if creature != null and creature.id == "valiant_armourdillo":
+			_show_lesson("complete")
 	elif lesson == FLIP and lesson_state == "action" and game.players[1].lands[0]["flipped"]:
 		_show_lesson("complete")
 	elif lesson_state == "practice_one":
@@ -336,6 +384,9 @@ func command_resolved(p: int, command: Dictionary) -> void:
 					_show_lesson("practice_two")
 			GOBBLE:
 				if game.tokens(game.players[0].creatures[0], "atk_tok") > 0:
+					_show_lesson("practice_two")
+			WHUMP:
+				if game.players[0].creatures[0].id == "courageous_armourdillo":
 					_show_lesson("practice_two")
 			FLIP:
 				if game.players[0].creatures[1] != null and not game.players[0].creatures[0].flooped:
@@ -350,6 +401,9 @@ func command_resolved(p: int, command: Dictionary) -> void:
 					_show_lesson("practice_done")
 			GOBBLE:
 				if game.players[0].creatures[0].id == "darling_cobnoblin":
+					_show_lesson("practice_done")
+			WHUMP:
+				if game.tokens(game.players[0].creatures[0], "atk_tok") > 0:
 					_show_lesson("practice_done")
 			FLIP:
 				if game.players[0].lands[0]["flipped"]:

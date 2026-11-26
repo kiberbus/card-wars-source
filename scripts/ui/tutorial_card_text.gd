@@ -25,6 +25,18 @@ const ADVANCED_TEXT := {
 		"en": "Gobble (Хрум). FLOOP >>> Draw a card.",
 		"ko": "Хрум. 플룹 >>> 카드 한 장을 뽑아.",
 	},
+	"genteel_armourdillo": {
+		"en": "Whump (Бух). When an opposing creature attacks, you may have it attack this creature instead.",
+		"ko": "Бух. 상대 생물이 공격할 때 대신 이 생물을 공격하게 할 수 있어.",
+	},
+	"valiant_armourdillo": {
+		"en": "Whump (Бух). When played from your hand, destroy the opposing creature in this lane.",
+		"ko": "Бух. 손에서 이 카드를 사용하면 이 구역의 상대 생물을 파괴해.",
+	},
+	"courageous_armourdillo": {
+		"en": "Whump (Бух). When this creature defeats an opposing creature, restore 2 health and deal 2 damage to a chosen opponent.",
+		"ko": "Бух. 이 생물이 상대 생물을 쓰러뜨리면 체력 2를 회복하고 선택한 상대에게 피해 2를 줘.",
+	},
 }
 
 const TEXT := {
