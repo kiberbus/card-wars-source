@@ -13,6 +13,7 @@ signal _tl_setup_msg
 const Game = preload("res://scripts/core/game.gd")
 const Board = preload("res://scripts/ui/board.gd")
 const BasicTutorial = preload("res://scripts/ui/basic_tutorial.gd")
+const AdvancedTutorial = preload("res://scripts/ui/advanced_tutorial.gd")
 const TutorialText = preload("res://scripts/ui/tutorial_text.gd")
 const CardView = preload("res://scripts/ui/card_view.gd")
 const CardBacks = preload("res://scripts/ui/card_backs.gd")
@@ -684,7 +685,9 @@ func show_tutorial_menu() -> void:
 		show_tutorial_language_menu())
 	v.add_child(basic)
 	var advanced := WoodUI.button("Продвинутое обучение", UI.ORANGE, font_size, button_size)
-	advanced.disabled = true
+	advanced.pressed.connect(func():
+		_close_overlay(root)
+		show_tutorial_language_menu(false, true))
 	v.add_child(advanced)
 	var trainer := WoodUI.button("Тренажёр", UI.ORANGE, font_size, button_size)
 	trainer.disabled = true
@@ -699,7 +702,7 @@ func show_tutorial_menu() -> void:
 	_pop_in(v)
 
 
-func show_tutorial_language_menu(for_rules := false) -> void:
+func show_tutorial_language_menu(for_rules := false, for_advanced := false) -> void:
 	if _overlay_open:
 		return
 	var root := _overlay_root(Color(0.02, 0.01, 0.05, 0.6))
@@ -726,6 +729,8 @@ func show_tutorial_language_menu(for_rules := false) -> void:
 			_close_overlay(root)
 			if for_rules:
 				show_rules(choice[1], true)
+			elif for_advanced:
+				start_advanced_tutorial(choice[1])
 			else:
 				start_basic_tutorial(choice[1]))
 		v.add_child(button)
@@ -760,6 +765,26 @@ func start_basic_tutorial(language := "ru") -> void:
 	tutorial.start(game, board, language)
 	board.set_hands_hidden(false)
 	await board.run_engine(func(): await game.start_game())
+
+
+func start_advanced_tutorial(language := "ru", lesson := 0) -> void:
+	_clear_title()
+	online = false
+	ai_mode = true
+	_ai_vs_ai_mode = false
+	seat = 0
+	_mode = "tutorial"
+	game = Game.new()
+	if not AdvancedTutorial.prepare(game, lesson):
+		push_error("Не удалось подготовить продвинутое обучение: урок %d." % lesson)
+		show_title()
+		return
+	_new_board()
+	board.enable_ai(null, 1, 0)
+	var tutorial := AdvancedTutorial.new()
+	board.add_child(tutorial)
+	tutorial.start_lesson(game, board, language, lesson)
+	board.set_hands_hidden(false)
 
 
 ## The «Играть» menu goes when a game screen opens, from it or from elsewhere.
@@ -1334,7 +1359,7 @@ const RULES_TEXT := """[b][color=#ffd75a]Цель.[/color][/b] Снизь жиз
 [b][color=#ffd75a]Розыгрыш карт.[/color][/b] Стоимость в кружке — это и число действий, и сколько земель нужного типа ты должен контролировать. Радужным картам подходит любая земля. Перевёрнутые земли не считаются ни за какой тип. Карты стоимостью 0 можно играть в свой ход всегда.
 Существо можно сыграть в любую свою зону. Если там уже стоит твоё неповёрнутое существо, оно заменяется и уходит в сброс. Строения кладутся под землю и заменяются так же. Заклинания срабатывают и уходят в сброс.
 
-[b][color=#9fe7ff]Лёд.[/color][/b] Карты Ледяного Короля и Гантера замораживают земли (Ледяной жетон). На замёрзшую землю нельзя играть существ и строения. В свой ход можно потратить 1 действие и растопить лёд на своей земле — кликни по замёрзшей земле.
+[b][color=#9fe7ff]Лёд.[/color][/b] Карты Ледяного Короля и Гантера замораживают земли (Ледяной жетон). Обычно на замёрзшую землю нельзя играть существ, но строения можно. В свой ход можно сбросить карту и растопить лёд на своей земле — кликни по замёрзшей земле.
 
 [b][color=#ffd75a]Урон.[/color][/b] Урон на существах сохраняется между ходами. Когда урон достигает защиты, существо погибает и уходит в сброс владельца. «Восстановить урон» — снять урон с существа, «восстановить HP» — вернуть жизни игроку (не больше 25).
 
@@ -1909,8 +1934,6 @@ func _on_game_over(winner: int, note := "") -> void:
 		t.text = "ПОБЕДИЛ ИИ %d" % (winner + 1)
 		line = "%s выигрывает! Счёт серии — ИИ 1 (%s) %d : %d ИИ 2 (%s)" % [ps.name, game.players[0].name,
 			_ai_series[0], _ai_series[1], game.players[1].name]
-	if _mode == "tutorial":
-		line += "\nПродвинутое обучение пока недоступно."
 	var s := WoodUI.label(line, 24 if phone_layout else 30, UI.hero_color(ps.hero), 8)
 	s.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	if phone_layout:
@@ -1945,7 +1968,12 @@ func _on_game_over(winner: int, note := "") -> void:
 	if _mode == "tutorial":
 		again.visible = false
 		other.text = "Продвинутое обучение"
-		other.disabled = true
+		other.pressed.connect(func():
+			_close_overlay(root)
+			_game_over_root = null
+			_end_game()
+			show_title()
+			show_tutorial_language_menu(false, true))
 		save.visible = false
 		menu.pressed.connect(func():
 			_close_overlay(root)

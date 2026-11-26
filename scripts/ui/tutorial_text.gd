@@ -3,6 +3,18 @@ extends RefCounted
 const TEXT := {
 	"en": {
 		"next": "Next",
+		"advanced_fire": "Fire: play «Меткий выстрел» and select the highlighted enemy creature.",
+		"advanced_fire_done": "Fire dealt 1 damage immediately; «Меткий выстрел» dealt 1 more. At the start of its controller's turn, each fire token deals another 1 damage.",
+		"advanced_fire_examples": "Some creatures use fire tokens: «Яростный феникс» gets +1 attack for each on creatures, while «Огненный пёс» can deal that much damage when it enters play.",
+		"advanced_frost": "Frost: creatures normally cannot be played on frozen land, but buildings can. Select the land, choose «Растопить лёд» (Melt ice), and discard «Гномьи сопли».",
+		"advanced_frost_play": "The land has thawed. Play «Прохладный младенец» on it.",
+		"advanced_frost_done": "Discarding a card removed the ice. Freezing a land does not remove a creature already there: look at «Крутой пёс» next to it.",
+		"advanced_gobble": "Gobble (Хрум): play «Драгоценнейший початкогоблин» over «Милый початкогоблин» in the highlighted lane.",
+		"advanced_gobble_done": "Gobble triggers when a creature with this ability is replaced. It goes under the new creature, adding its base stats and permanent bonuses. Here, 2/3 + 1/4 = 3/7.",
+		"advanced_gobble_details": "Damage and tokens transfer too, but the old creature's abilities do not. When the new creature leaves play, the card under it goes to the discard pile.",
+		"advanced_flip": "Flipping lands: select «Свинья» and choose «ФЛЮП» to flip the Cornfield opposite it. Watch how «Кожурыцарь»'s stats change.",
+		"advanced_flip_done": "The land is face down and no longer counts as a Cornfield. Its creature remains; «Кожурыцарь» has less attack and defense.",
+		"advanced_flip_details": "A face-down land counts as no type when checking land requirements for cards. It stays face down until an effect turns it face up.",
 		"rules_title": "Rules",
 		"rules_back": "Back",
 		"rules_desktop_controls": "Right-click to inspect any face-up card. Space speeds up animations. F11 toggles full screen. Esc opens the menu.",
@@ -25,7 +37,7 @@ const TEXT := {
 [b][color=#ffd75a]Playing cards.[/color][/b] The cost in the circle is both the number of actions spent and the number of lands of the required type you must control. Rainbow cards work with any land. Face-down lands do not count as any type. Cost 0 cards can always be played on your turn.
 A creature can be played in any of your lanes. If your upright creature is already there, it is replaced and goes to the discard pile. Buildings go beneath the land and are replaced in the same way. Spells take effect and go to the discard pile.
 
-[b][color=#9fe7ff]Ice.[/color][/b] Cards from «Ледяной Король» and «Гантер» freeze lands with ice tokens. Creatures and buildings cannot be played on a frozen land. On your turn, spend 1 action to melt ice on your land by selecting it.
+[b][color=#9fe7ff]Ice.[/color][/b] Cards from «Ледяной Король» and «Гантер» freeze lands with ice tokens. Creatures normally cannot be played on a frozen land, but buildings can. On your turn, select your frozen land and discard a card to melt its ice.
 
 [b][color=#ffd75a]Damage.[/color][/b] Damage on creatures remains between turns. When damage reaches its defense, the creature dies and goes to its owner's discard pile. Healing damage removes damage from a creature; restoring HP returns health to a player, up to 25.
 
@@ -42,8 +54,6 @@ A creature can be played in any of your lanes. If your upright creature is alrea
 [b][color=#9fe7ff]Online.[/color][/b] Both players connect to the same Radmin VPN network or local network and choose their heroes. One selects «Создать игру» (Create game) and gives their address to the other player (in Radmin it looks like 26.x.x.x); the other enters it and selects «Подключиться» (Connect). If Windows asks about the firewall, allow access. Both players must have the same game version.
 If the connection drops, the game is paused rather than reset. The guest selects «Переподключиться» (Reconnect), or waits for the automatic reconnection, and the game continues from the same point.
 """,
-		"jake_nerd": "Jake, nerd!",
-		"friend": "Sorry, Jake. Let's play again",
 		"phase_title": "TURN PHASE",
 		"phase_first_intro": "First turn: you already have 5 cards and 2 actions. From your next turn, draw 1 card automatically.",
 		"phase_first": "First turn: prepare your cards and restore 2 actions. You already have exactly 5 cards.",
@@ -101,13 +111,26 @@ If the connection drops, the game is paused rather than reset. The guest selects
 		"replace": "Play «Крутой пёс» in place of «Архитектор разума» in this lane. The Architect goes to the discard pile, and the new defender stops «Стена початков» from attacking you directly.",
 		"battle_final": "«Крутой пёс» replaced «Архитектор разума». Enter combat and attack with all prepared creatures.",
 		"attack_final": "Attack with all prepared creatures: «Крутой пёс» opposite «Стена початков», «Джинн Стрюзан» opposite «Кукутузик», and «Свинья».",
-		"jake_final_dialogue": "Finn is cheating! I'm leaving!",
+		"jake_final_dialogue": "Ha, I was going easy on the rookie. But I'm tired today, so let's play for real tomorrow. Practice with BMO in the meantime.",
+		"finn_final_dialogue": "Okay, bro, I'll be ready tomorrow.",
 		"archer_summary": "Jake played «Лучник Дэн» opposite «Джинн Стрюзан». They fought simultaneously: the Djinn dealt %d damage and Dan dealt %d back. The Djinn now has %d of %d defense, Dan has %d of %d. At 0 defense a creature dies and goes to the discard pile.",
 		"reject_command": "For now, perform the highlighted action.",
 		"reject_choice": "Choose the highlighted target.",
 	},
 	"ko": {
 		"next": "다음",
+		"advanced_fire": "불: «Меткий выстрел»을 사용하고 강조된 상대 생물을 선택하세요.",
+		"advanced_fire_done": "불은 즉시 피해 1을 주고, «Меткий выстрел»이 추가 피해 1을 주었습니다. 생물 소유자의 턴 시작마다 불 토큰 하나당 피해 1을 더 받습니다.",
+		"advanced_fire_examples": "일부 생물은 불 토큰을 활용합니다. «Яростный феникс»은 생물의 불 토큰마다 공격력 +1을 얻고, «Огненный пёс»은 등장할 때 그 수만큼 피해를 줄 수 있습니다.",
+		"advanced_frost": "얼음: 보통 얼어붙은 땅에는 생물을 놓을 수 없지만 건물은 놓을 수 있습니다. 땅을 눌러 «Растопить лёд»(얼음 녹이기)를 선택하고 «Гномьи сопли»를 버리세요.",
+		"advanced_frost_play": "땅이 녹았습니다. 그곳에 «Прохладный младенец»을 놓으세요.",
+		"advanced_frost_done": "카드를 버려 얼음을 제거했습니다. 땅이 얼어도 이미 놓인 생물은 그대로 남습니다. 옆에 있는 «Крутой пёс»을 보세요.",
+		"advanced_gobble": "Хрум: 강조된 구역에서 «Милый початкогоблин» 위에 «Драгоценнейший початкогоблин»을 놓으세요.",
+		"advanced_gobble_done": "Хрум은 이 능력이 있는 생물을 교체할 때 발동합니다. 기존 생물이 새 생물 아래로 들어가고 기본 능력치와 영구 보너스가 더해집니다. 여기서는 2/3 + 1/4 = 3/7입니다.",
+		"advanced_gobble_details": "피해와 토큰도 새 생물에게 넘어가지만 기존 생물의 능력은 넘어가지 않습니다. 새 생물이 필드를 떠나면 아래의 카드는 버림 더미로 갑니다.",
+		"advanced_flip": "땅 뒤집기: «Свинья»를 누르고 «ФЛЮП»을 선택해 맞은편 옥수수밭을 뒤집으세요. «Кожурыцарь»의 능력치 변화를 보세요.",
+		"advanced_flip_done": "땅이 뒤집혀 더 이상 옥수수밭으로 세지 않습니다. 그 위의 생물은 남고 «Кожурыцарь»의 공격력과 방어력은 줄어듭니다.",
+		"advanced_flip_details": "뒤집힌 땅은 카드의 땅 조건을 확인할 때 어떤 종류로도 세지 않습니다. 효과로 다시 앞면이 될 때까지 뒤집힌 상태로 남습니다.",
 		"rules_title": "게임 규칙",
 		"rules_back": "뒤로",
 		"rules_desktop_controls": "마우스 오른쪽 버튼으로 앞면 카드를 살펴봅니다. 스페이스바는 애니메이션을 빠르게 합니다. F11은 전체 화면, Esc는 메뉴입니다.",
@@ -130,7 +153,7 @@ If the connection drops, the game is paused rather than reset. The guest selects
 [b][color=#ffd75a]카드 사용.[/color][/b] 원 안의 비용은 필요한 행동 수이자 보유해야 하는 해당 종류의 땅 수입니다. 무지개 카드는 모든 땅에 사용할 수 있습니다. 뒤집힌 땅은 어떤 종류로도 세지 않습니다. 비용 0인 카드는 내 턴에 항상 사용할 수 있습니다.
 생물은 내 어느 구역에나 놓을 수 있습니다. 그곳에 내 돌려지지 않은 생물이 있으면 기존 생물은 교체되어 버림 더미로 갑니다. 건물은 땅 아래에 놓으며 같은 방식으로 교체합니다. 주문은 효과를 낸 뒤 버림 더미로 갑니다.
 
-[b][color=#9fe7ff]얼음.[/color][/b] «Ледяной Король»과 «Гантер»의 카드는 얼음 토큰으로 땅을 얼립니다. 얼어붙은 땅에는 생물과 건물을 놓을 수 없습니다. 내 턴에 얼어붙은 내 땅을 선택하고 행동 1개를 써서 얼음을 녹일 수 있습니다.
+[b][color=#9fe7ff]얼음.[/color][/b] «Ледяной Король»과 «Гантер»의 카드는 얼음 토큰으로 땅을 얼립니다. 보통 얼어붙은 땅에는 생물을 놓을 수 없지만 건물은 놓을 수 있습니다. 내 턴에 얼어붙은 내 땅을 선택하고 카드 한 장을 버려 얼음을 녹일 수 있습니다.
 
 [b][color=#ffd75a]피해.[/color][/b] 생물이 받은 피해는 턴이 지나도 남습니다. 피해가 방어력에 도달하면 생물은 쓰러져 소유자의 버림 더미로 갑니다. 피해 회복은 생물의 피해를 없애며, HP 회복은 플레이어의 생명을 최대 25까지 돌려줍니다.
 
@@ -147,8 +170,6 @@ If the connection drops, the game is paused rather than reset. The guest selects
 [b][color=#9fe7ff]온라인.[/color][/b] 두 플레이어가 같은 Radmin VPN 네트워크나 로컬 네트워크에 연결하고 영웅을 선택합니다. 한 명이 «Создать игру»(게임 만들기)를 누르고 자신의 주소를 알려 줍니다(Radmin 주소 예: 26.x.x.x). 다른 플레이어는 주소를 입력하고 «Подключиться»(연결)를 누릅니다. Windows 방화벽 확인 창이 나타나면 접근을 허용합니다. 두 플레이어의 게임 버전은 같아야 합니다.
 연결이 끊겨도 게임이 초기화되지 않고 일시 정지됩니다. 게스트가 «Переподключиться»(재연결)를 누르거나 자동 재연결을 기다리면 같은 지점부터 게임이 계속됩니다.
 """,
-		"jake_nerd": "제이크, 바보!",
-		"friend": "미안해, 제이크. 다시 하자",
 		"phase_title": "턴 단계 안내",
 		"phase_first_intro": "첫 턴: 손에 카드 5장과 행동 2개가 있습니다. 다음 턴부터 카드 1장을 자동으로 뽑습니다.",
 		"phase_first": "첫 턴: 카드를 준비하고 행동 2개를 회복합니다. 손에는 이미 카드 5장이 있습니다.",
@@ -206,7 +227,8 @@ If the connection drops, the game is paused rather than reset. The guest selects
 		"replace": "이 구역의 «Архитектор разума» 대신 «Крутой пёс»을 놓아. 기존 생물은 버림 더미로 가고 새 방어자가 «Стена початков»의 직접 공격을 막아.",
 		"battle_final": "«Крутой пёс»이 «Архитектор разума»를 대신했어. 전투 단계로 가서 준비된 생물 모두로 공격하자.",
 		"attack_final": "준비된 생물 모두로 공격해: «Стена початков» 맞은편의 «Крутой пёс», «Кукутузик» 맞은편의 «Джинн Стрюзан», 그리고 «Свинья»야.",
-		"jake_final_dialogue": "핀이 반칙하고 있어! 난 갈래!",
+		"jake_final_dialogue": "하, 초보자라고 봐준 거야. 하지만 오늘은 피곤하니까 내일 진지하게 한 판 하자. 그동안 비모랑 연습해.",
+		"finn_final_dialogue": "좋아, 형제! 내일은 준비해 둘게.",
 		"archer_summary": "제이크가 «Джинн Стрюзан» 맞은편에 «Лучник Дэн»을 놓았어. 동시에 싸워서 지니가 피해 %d, 댄이 피해 %d을 줬어. 현재 지니의 방어력은 %d/%d, 댄은 %d/%d야. 방어력이 0이면 생물은 버림 더미로 가.",
 		"reject_command": "지금은 강조된 행동을 해 줘.",
 		"reject_choice": "강조된 대상을 선택해 줘.",

@@ -80,7 +80,7 @@ func _check_menu() -> void:
 		await process_frame
 		_check(_button("Базовое обучение") != null, "tutorial submenu has Basic Tutorial")
 		var advanced := _button("Продвинутое обучение")
-		_check(advanced != null and advanced.disabled, "advanced tutorial is disabled")
+		_check(advanced != null and not advanced.disabled, "advanced tutorial is available")
 		var trainer := _button("Тренажёр")
 		_check(trainer != null and trainer.disabled, "trainer is disabled")
 		_check(_button("Правила") != null and _button("Управление") == null,

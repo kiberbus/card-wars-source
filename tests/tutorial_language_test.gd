@@ -88,9 +88,23 @@ func _run() -> void:
 		_check(tutor.guide_text.text.contains("3") and tutor.guide_text.text.contains("2"),
 				"translated combat summary formats the actual damage")
 		tutor._set_step(tutor.Step.JAKE_FINAL_DIALOGUE)
-		_check(tutor.dialogue_jake_button.visible and tutor.dialogue_friend_button.visible
-				and tutor.dialogue_friend_button.text == TutorialText.TEXT[item[1]]["friend"],
-				"final responses use the selected language")
+		_check(tutor.dialogue_next_button.visible
+				and tutor.dialogue_text.text == TutorialText.TEXT[item[1]]["jake_final_dialogue"],
+				"Jake's final dialogue uses the selected language")
+		await process_frame
+		await process_frame
+		_check(tutor.dialogue_text.get_visible_line_count() == tutor.dialogue_text.get_line_count()
+				and tutor.dialogue_panel.position.y + tutor.dialogue_panel.size.y <= 1080.0,
+				"Jake's translated dialogue fits its panel")
+		tutor.dialogue_next_button.pressed.emit()
+		_check(tutor.step == tutor.Step.FINN_FINAL_DIALOGUE
+				and tutor.dialogue_text.text == TutorialText.TEXT[item[1]]["finn_final_dialogue"],
+				"Finn's final reply uses the selected language")
+		await process_frame
+		await process_frame
+		_check(tutor.dialogue_text.get_visible_line_count() == tutor.dialogue_text.get_line_count()
+				and tutor.dialogue_panel.position.y + tutor.dialogue_panel.size.y <= 1080.0,
+				"Finn's translated dialogue fits its panel")
 		if item[1] == "ko":
 			var font: Font = tutor.guide_text.get_theme_font("font")
 			_check(font.has_char("한".unicode_at(0)) and font.has_char("Д".unicode_at(0)),
@@ -109,12 +123,10 @@ func _run() -> void:
 		_check(TranslationServer.get_locale() == original_locale,
 				"tutorial language does not alter the game's global locale")
 		tutor._set_step(tutor.Step.JAKE_FINAL_DIALOGUE)
-		if item[1] == "en":
-			tutor.dialogue_friend_button.pressed.emit()
-		else:
-			tutor.dialogue_jake_button.pressed.emit()
+		tutor.dialogue_next_button.pressed.emit()
+		tutor.dialogue_next_button.pressed.emit()
 		_check(main.board == null and main.game == null,
-				"final response immediately returns to the main menu")
+				"continuing after Finn's reply returns to the main menu")
 		await create_timer(0.3).timeout
 		_check(_button("Обучение") != null, "main menu remains in Russian after the tutorial")
 	quit(1 if failures > 0 else 0)

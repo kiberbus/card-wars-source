@@ -24,7 +24,7 @@ enum Step {
 	REPLACE_ARCHITECT, JAKE_FINAL_NOTICE, JAKE_FINAL_WAIT, WALL_HIT_NOTICE, WALL_HIT_WAIT,
 	BEGIN_BATTLE_FINAL, ATTACK_FINAL, JAKE_FINAL_DIALOGUE,
 	JAKE_INTERFACE_DIALOGUE, FINN_FORTRESS_DIALOGUE, JAKE_SECOND_DIALOGUE,
-	FINN_REACTION, JAKE_CORN_DIALOGUE,
+	FINN_REACTION, JAKE_CORN_DIALOGUE, FINN_FINAL_DIALOGUE,
 }
 
 var game
@@ -63,8 +63,6 @@ var dialogue_character: TextureRect
 var dialogue_panel: PanelContainer
 var dialogue_text: Label
 var dialogue_next_button: Button
-var dialogue_jake_button: Button
-var dialogue_friend_button: Button
 var card_property_panel: PanelContainer
 var card_property_text: Label
 var card_property_id := ""
@@ -166,13 +164,6 @@ func _build_ui() -> void:
 	dialogue_next_button = WoodUI.button(_text("next", "Далее"), UI.GREEN, 22, Vector2(170, 52))
 	dialogue_next_button.pressed.connect(_advance)
 	dialogue_buttons.add_child(dialogue_next_button)
-	dialogue_jake_button = WoodUI.button(_text("jake_nerd", "Джейк Ботан!"), UI.ORANGE, 20, Vector2(300, 52))
-	dialogue_jake_button.pressed.connect(_return_to_title)
-	dialogue_buttons.add_child(dialogue_jake_button)
-	dialogue_friend_button = WoodUI.button(
-			_text("friend", "Прости Джейк, давай сыграем еще"), UI.GREEN, 20, Vector2(440, 52))
-	dialogue_friend_button.pressed.connect(_return_to_title)
-	dialogue_buttons.add_child(dialogue_friend_button)
 
 	if language == "en" or language == "ko":
 		card_property_panel = PanelContainer.new()
@@ -194,8 +185,7 @@ func _build_ui() -> void:
 		var korean_font: Font = TutorialText.korean_font()
 		if not korean_font.has_char("한".unicode_at(0)):
 			push_warning("Basic tutorial: no Korean system font was found.")
-		for control: Control in [phase_text, guide_text, dialogue_text, next_button,
-				dialogue_next_button, dialogue_jake_button, dialogue_friend_button]:
+		for control: Control in [phase_text, guide_text, dialogue_text, next_button, dialogue_next_button]:
 			control.add_theme_font_override("font", korean_font)
 		card_property_text.add_theme_font_override("font", korean_font)
 		board.preview_info.label_settings.font = korean_font
@@ -230,7 +220,7 @@ func _process(_delta: float) -> void:
 func show_card_property(id: String) -> void:
 	if card_property_panel == null:
 		return
-	var translations: Dictionary = TutorialCardText.TEXT.get(id, {})
+	var translations: Dictionary = TutorialCardText.TEXT.get(id, TutorialCardText.ADVANCED_TEXT.get(id, {}))
 	var text: String = translations.get(language, "")
 	card_property_id = id if not text.is_empty() else ""
 	card_property_text.text = text
@@ -254,7 +244,7 @@ func _place_guide() -> void:
 	guide_panel.position.x = minf(guide_right_edge, right_limit) - guide_panel.size.x
 
 
-func _show_dialogue(character: Texture2D, text: String, final_choices := false) -> void:
+func _show_dialogue(character: Texture2D, text: String) -> void:
 	guide_panel.visible = false
 	dialogue_layer.visible = true
 	dialogue_character.texture = character
@@ -263,9 +253,7 @@ func _show_dialogue(character: Texture2D, text: String, final_choices := false) 
 	dialogue_text.text = text
 	dialogue_text.visible = true
 	dialogue_text.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
-	dialogue_next_button.visible = not final_choices
-	dialogue_jake_button.visible = final_choices
-	dialogue_friend_button.visible = final_choices
+	dialogue_next_button.visible = true
 
 
 func _show_reaction(character: Texture2D) -> void:
@@ -277,8 +265,6 @@ func _show_reaction(character: Texture2D) -> void:
 	dialogue_text.text = ""
 	dialogue_text.visible = false
 	dialogue_next_button.visible = false
-	dialogue_jake_button.visible = false
-	dialogue_friend_button.visible = false
 
 
 func _return_to_title() -> void:
@@ -571,7 +557,9 @@ func _set_step(next_step: Step) -> void:
 			_highlight_table(jinn_uid)
 			_highlight_table(pig_uid)
 		Step.JAKE_FINAL_DIALOGUE:
-			_show_dialogue(JAKE_YELL, _text("jake_final_dialogue", "Финн мухлюет! Я ухожу!"), true)
+			_show_dialogue(JAKE_INTRO, _text("jake_final_dialogue", "Ха, я поддавался новичку. Но сегодня я уже устал, завтра сыграем всерьёз. Потренируйся пока с Бимо."))
+		Step.FINN_FINAL_DIALOGUE:
+			_show_dialogue(FINN_CONFIDENT, _text("finn_final_dialogue", "Хорошо, брат, завтра я буду готов."))
 		Step.ARCHER_SUMMARY:
 			var jinn = game.players[0].creatures[jinn_lane]
 			var archer = game.players[1].creatures[jinn_lane]
@@ -635,6 +623,10 @@ func _advance() -> void:
 			_set_step(Step.END_TWO)
 		Step.JAKE_CORN_DIALOGUE:
 			_set_step(Step.END_THREE)
+		Step.JAKE_FINAL_DIALOGUE:
+			_set_step(Step.FINN_FINAL_DIALOGUE)
+		Step.FINN_FINAL_DIALOGUE:
+			_return_to_title()
 
 
 func allow_command(p: int, command: Dictionary) -> bool:

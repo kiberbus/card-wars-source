@@ -1,5 +1,24 @@
 extends RefCounted
 
+const ADVANCED_TEXT := {
+	"hot_shot": {
+		"en": "Set a chosen creature on fire and deal 1 additional damage to it.",
+		"ko": "선택한 생물에 불을 붙이고 추가로 피해 1을 줘.",
+	},
+	"flameingo_blazeling": {
+		"en": "When Пламинго-искорка deals damage to a creature, set it on fire if it was not already burning.",
+		"ko": "Пламинго-искорка가 생물에게 피해를 주면, 그 생물이 타고 있지 않을 때 불을 붙여.",
+	},
+	"darling_cobnoblin": {
+		"en": "Gobble (Хрум). FLOOP >>> Put an attack token on a chosen friendly creature.",
+		"ko": "Хрум. 플룹 >>> 선택한 아군 생물에 공격 토큰 하나를 놓아.",
+	},
+	"treasured_cobnoblin": {
+		"en": "Gobble (Хрум). FLOOP >>> Draw a card.",
+		"ko": "Хрум. 플룹 >>> 카드 한 장을 뽑아.",
+	},
+}
+
 const TEXT := {
 	"ancient_scholar": {
 		"en": "FLOOP >>> Return a random Rainbow card from your discard pile to your hand. If you have a building in this lane, gain 1 action.",

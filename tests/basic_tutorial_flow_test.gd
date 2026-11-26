@@ -166,14 +166,24 @@ func _run_test() -> void:
 	await _issue({"cmd": "begin_attack"})
 	for lane in [0, 1, 3]:
 		await _issue({"cmd": "attack", "lane": lane})
-	_check(tutor.step == 37 and tutor.dialogue_layer.visible
-			and tutor.dialogue_text.text.contains("Финн мухлюет")
-			and tutor.dialogue_jake_button.visible and tutor.dialogue_friend_button.visible
+	_check(tutor.step == tutor.Step.JAKE_FINAL_DIALOGUE and tutor.dialogue_layer.visible
+			and tutor.dialogue_text.text == "Ха, я поддавался новичку. Но сегодня я уже устал, завтра сыграем всерьёз. Потренируйся пока с Бимо."
+			and tutor.dialogue_next_button.visible
 			and main.game.turn_number == 7 and main.game.phase == "attack",
-			"Jake's final scene offers both responses without continuing the match")
-	tutor.dialogue_friend_button.pressed.emit()
+			"Jake's final scene appears after the attacks without continuing the match")
+	await process_frame
+	await process_frame
+	_check(tutor.dialogue_text.get_visible_line_count() == tutor.dialogue_text.get_line_count()
+			and tutor.dialogue_panel.position.y + tutor.dialogue_panel.size.y <= 1080.0,
+			"Jake's final dialogue fits its panel")
+	tutor.dialogue_next_button.pressed.emit()
+	_check(tutor.step == tutor.Step.FINN_FINAL_DIALOGUE
+			and tutor.dialogue_text.text == "Хорошо, брат, завтра я буду готов."
+			and tutor.dialogue_next_button.visible and main.game != null,
+			"Finn replies before the tutorial ends")
+	tutor.dialogue_next_button.pressed.emit()
 	_check(main.board == null and main.game == null,
-			"the friendly response immediately returns to the main menu")
+			"continuing after Finn's reply returns to the main menu")
 	quit(1 if failures > 0 else 0)
 
 
