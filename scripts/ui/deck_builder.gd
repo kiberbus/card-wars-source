@@ -1308,6 +1308,12 @@ func _card_tex(id: String, big := false) -> Texture2D:
 	if cache.has(id):
 		return cache[id]
 	var path := CardDB.image_path(id) if big else CardDB.card_thumb(id)
+	if DisplayServer.get_name() == "headless":
+		var texture: Texture2D = load(path)
+		if texture == null:
+			return null
+		cache[id] = CardView.upright(id, texture)
+		return cache[id]
 	if not _loading.has(path) and ResourceLoader.load_threaded_request(path) == OK:
 		_loading[path] = [id, big]
 	return null
@@ -1753,14 +1759,23 @@ func _hero_best(id: String, full: bool) -> Texture2D:
 		return _hero_full[id]
 	if full:
 		_hero_load(id, true)
+		if _hero_full.has(id):
+			return _hero_full[id]
 	if _hero_small.has(id):
 		return _hero_small[id]
 	_hero_load(id, false)
+	if _hero_small.has(id):
+		return _hero_small[id]
 	return CardBacks.texture()
 
 
 func _hero_load(id: String, full: bool) -> void:
 	var path := CardDB.hero_image(id) if full else CardDB.hero_thumb(id)
+	if DisplayServer.get_name() == "headless":
+		var texture: Texture2D = load(path)
+		if texture != null:
+			(_hero_full if full else _hero_small)[id] = texture
+		return
 	if not _hero_loading.has(path) and ResourceLoader.load_threaded_request(path) == OK:
 		_hero_loading[path] = [id, full]
 

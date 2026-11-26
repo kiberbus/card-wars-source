@@ -12,6 +12,9 @@ signal _tl_setup_msg
 
 const Game = preload("res://scripts/core/game.gd")
 const Board = preload("res://scripts/ui/board.gd")
+const BasicTutorial = preload("res://scripts/ui/basic_tutorial.gd")
+const AdvancedTutorial = preload("res://scripts/ui/advanced_tutorial.gd")
+const TutorialText = preload("res://scripts/ui/tutorial_text.gd")
 const CardView = preload("res://scripts/ui/card_view.gd")
 const CardBacks = preload("res://scripts/ui/card_backs.gd")
 const KeyNavScript = preload("res://scripts/ui/key_nav.gd")
@@ -54,7 +57,7 @@ const MODE_NAMES := {"hotseat": "на одном устройстве", "ai": "�
 	"teams": "2 на 2", "teams_net": "2 на 2 по сети", "three": "на троих", "three_net": "на троих по сети"}
 const SETTINGS_PATH := "user://settings.cfg"
 ## Buttons that close a window or go back a screen: Escape and the phone's Back press them.
-const BACK_TEXTS := ["Назад", "Закрыть", "Готово", "Позже", "Понятно", "Хорошо"]
+const BACK_TEXTS := ["Назад", "Закрыть", "Готово", "Позже", "Понятно", "Хорошо", "Back", "뒤로"]
 const GAME_VERSION := "альфа 0.3.3"
 ## Build number of this version: the updater offers builds with a bigger one.
 ## Raise it with GAME_VERSION, then tools/publish.ps1 hands the new version out.
@@ -310,6 +313,8 @@ func _ready() -> void:
 ## the land tiles of the table and the small hero cards (kept for the session, ~100 MB).
 func _warm_up() -> void:
 	AILevels.warm(_ai_levels[1])
+	if DisplayServer.get_name() == "headless":
+		return
 	var paths := []
 	for kind in CardDB.land_types():
 		for i in range(1, 5):
@@ -337,6 +342,8 @@ func _take_warmed() -> void:
 ## Starts reading a hero card's full picture while the heroes are picked: the curtains at
 ## the start of a game show it, and a load() there waited ~30 ms for it. The last few are kept.
 func _warm_hero_pic(card: String) -> void:
+	if DisplayServer.get_name() == "headless":
+		return
 	var path := CardDB.hero_image(card)
 	if _hero_pics.has(path) or ResourceLoader.has_cached(path) or ResourceLoader.load_threaded_request(path) != OK:
 		return
@@ -519,6 +526,26 @@ func show_title() -> void:
 	var builder := WoodUI.button("Конструктор колод", WoodUI.BLUE, 30, Vector2(bw, bh))
 	builder.pressed.connect(func(): show_deck_builder(""))
 	buttons.add_child(builder)
+	var tutorial := WoodUI.button("Обучение", WoodUI.GOLD, 30, Vector2(bw, bh))
+	tutorial.pressed.connect(show_tutorial_menu)
+	buttons.add_child(tutorial)
+	var tutorial_english := WoodUI.label("Tutorial", 22, Color.WHITE, 4)
+	tutorial_english.name = "EnglishLabel"
+	tutorial_english.anchor_left = 0.03
+	tutorial_english.anchor_right = 0.27
+	tutorial_english.anchor_bottom = 1.0
+	tutorial_english.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	tutorial_english.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	tutorial.add_child(tutorial_english)
+	var tutorial_korean := WoodUI.label("튜토리얼", 22, Color.WHITE, 4)
+	tutorial_korean.name = "KoreanLabel"
+	tutorial_korean.label_settings.font = TutorialText.korean_font()
+	tutorial_korean.anchor_left = 0.73
+	tutorial_korean.anchor_right = 0.97
+	tutorial_korean.anchor_bottom = 1.0
+	tutorial_korean.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	tutorial_korean.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	tutorial.add_child(tutorial_korean)
 	var settings := WoodUI.button("Настройки", WoodUI.VIOLET, 30, Vector2(bw, bh))
 	settings.pressed.connect(show_settings)
 	buttons.add_child(settings)
@@ -631,6 +658,137 @@ func show_play_menu() -> void:
 	if not phone_layout:
 		v.add_child(back)
 	_pop_in(v)
+
+
+## «Обучение»: the submenu of the main menu. Back leads to the main menu.
+func show_tutorial_menu() -> void:
+	if _overlay_open:
+		return
+	var root := _overlay_root(Color(0.02, 0.01, 0.05, 0.6))
+	var center := FitCenter.new()
+	center.set_anchors_preset(Control.PRESET_FULL_RECT)
+	root.add_child(center)
+	var panel := PanelContainer.new()
+	panel.add_theme_stylebox_override("panel", _panel_box())
+	center.add_child(panel)
+	var v := VBoxContainer.new()
+	v.add_theme_constant_override("separation", 14)
+	panel.add_child(v)
+	var back := WoodUI.button("Назад", WoodUI.BACK, 28, Vector2(220, 62))
+	back.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	back.pressed.connect(func(): _close_overlay(root))
+	if phone_layout:
+		v.add_child(_phone_header("Обучение", back))
+	else:
+		v.add_child(_title("Обучение"))
+	var button_size := Vector2(340, Phone.TOUCH) if phone_layout else Vector2(440, 70)
+	var font_size := 28 if phone_layout else 30
+	var basic := WoodUI.button("Базовое обучение", WoodUI.GOLD, font_size, button_size)
+	basic.pressed.connect(func():
+		_close_overlay(root)
+		show_tutorial_language_menu())
+	v.add_child(basic)
+	var advanced := WoodUI.button("Продвинутое обучение", UI.ORANGE, font_size, button_size)
+	advanced.pressed.connect(func():
+		_close_overlay(root)
+		show_tutorial_language_menu(false, true))
+	v.add_child(advanced)
+	var trainer := WoodUI.button("Тренажёр", UI.ORANGE, font_size, button_size)
+	trainer.disabled = true
+	v.add_child(trainer)
+	var rules := WoodUI.button("Правила", UI.ORANGE, font_size, button_size)
+	rules.pressed.connect(func():
+		_close_overlay(root)
+		show_tutorial_language_menu(true))
+	v.add_child(rules)
+	if not phone_layout:
+		v.add_child(back)
+	_pop_in(v)
+
+
+func show_tutorial_language_menu(for_rules := false, for_advanced := false) -> void:
+	if _overlay_open:
+		return
+	var root := _overlay_root(Color(0.02, 0.01, 0.05, 0.6))
+	var center := FitCenter.new()
+	center.set_anchors_preset(Control.PRESET_FULL_RECT)
+	root.add_child(center)
+	var panel := PanelContainer.new()
+	panel.add_theme_stylebox_override("panel", _panel_box())
+	center.add_child(panel)
+	var v := VBoxContainer.new()
+	v.add_theme_constant_override("separation", 14)
+	panel.add_child(v)
+	var korean_font: Font = TutorialText.korean_font()
+	var title := WoodUI.label("Выберите язык / Select language / 언어 선택", 26, UI.CREAM, 4)
+	title.label_settings.font = korean_font
+	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	v.add_child(title)
+	var button_size := Vector2(340, Phone.TOUCH) if phone_layout else Vector2(440, 70)
+	for choice: Array in [["Русский", "ru"], ["English", "en"], ["한국어", "ko"]]:
+		var button := WoodUI.button(choice[0], WoodUI.GOLD, 28, button_size)
+		if choice[1] == "ko":
+			button.add_theme_font_override("font", korean_font)
+		button.pressed.connect(func():
+			_close_overlay(root)
+			if for_rules:
+				show_rules(choice[1], true)
+			elif for_advanced:
+				start_advanced_tutorial(choice[1])
+			else:
+				start_basic_tutorial(choice[1]))
+		v.add_child(button)
+	var back := WoodUI.button("Назад", WoodUI.BACK, 28, Vector2(220, 62))
+	back.pressed.connect(func():
+		_close_overlay(root)
+		show_tutorial_menu())
+	v.add_child(back)
+	_pop_in(v)
+
+
+func start_basic_tutorial(language := "ru") -> void:
+	_clear_title()
+	if not await _wait_ai([[_ai_levels[1], "jake"]]):
+		return
+	online = false
+	ai_mode = true
+	_ai_vs_ai_mode = false
+	seat = 0
+	_mode = "tutorial"
+	game = Game.new()
+	game.setup(["finn", "jake"], 0, 1, false)
+	if not game.configure_basic_tutorial():
+		push_error("Не удалось подготовить фиксированные колоды базового обучения.")
+		show_title()
+		return
+	game.journal = []
+	_new_board()
+	var tutorial := BasicTutorial.new()
+	board.add_child(tutorial)
+	board.enable_ai(tutorial, 1, 0)
+	tutorial.start(game, board, language)
+	board.set_hands_hidden(false)
+	await board.run_engine(func(): await game.start_game())
+
+
+func start_advanced_tutorial(language := "ru", lesson := 0) -> void:
+	_clear_title()
+	online = false
+	ai_mode = true
+	_ai_vs_ai_mode = false
+	seat = 0
+	_mode = "tutorial"
+	game = Game.new()
+	if not AdvancedTutorial.prepare(game, lesson):
+		push_error("Не удалось подготовить продвинутое обучение: урок %d." % lesson)
+		show_title()
+		return
+	_new_board()
+	board.enable_ai(null, 1, 0)
+	var tutorial := AdvancedTutorial.new()
+	board.add_child(tutorial)
+	tutorial.start_lesson(game, board, language, lesson)
+	board.set_hands_hidden(false)
 
 
 ## The «Играть» menu goes when a game screen opens, from it or from elsewhere.
@@ -825,9 +983,6 @@ func show_settings() -> void:
 			var w := get_window()
 			w.mode = Window.MODE_WINDOWED if w.mode == Window.MODE_FULLSCREEN else Window.MODE_FULLSCREEN)
 		right.add_child(full)
-	var rules := WoodUI.button("Правила", UI.ORANGE, 24, bsize)
-	rules.pressed.connect(show_rules)
-	right.add_child(rules)
 	if not OS.has_feature("mobile") and not phone_layout:
 		var controls := WoodUI.button("Управление", UI.ORANGE, 24, bsize)
 		controls.pressed.connect(show_controls)
@@ -1116,7 +1271,7 @@ func _clear_title() -> void:
 		title_root = null
 
 
-func show_rules() -> void:
+func show_rules(language := "ru", from_tutorial := false) -> void:
 	var root := _overlay_root(Color(0.03, 0.02, 0.07, 0.86))
 	var center := FitCenter.new()
 	center.set_anchors_preset(Control.PRESET_FULL_RECT)
@@ -1127,7 +1282,11 @@ func show_rules() -> void:
 	var v := VBoxContainer.new()
 	v.add_theme_constant_override("separation", 14)
 	panel.add_child(v)
-	v.add_child(_title("Правила"))
+	var title_text := TutorialText.get_text(language, "rules_title", "Правила")
+	var title := _title(title_text)
+	if language == "ko":
+		(title.get_child(0) as Label).label_settings.font = TutorialText.korean_font()
+	v.add_child(title)
 	# A sheet of paper as big as the screen allows: ink letters read best on it.
 	var sheet := PanelContainer.new()
 	var sb := WoodUI.paper(WoodUI.PAPER, 0.0, 12)
@@ -1139,22 +1298,49 @@ func show_rules() -> void:
 	v.add_child(sheet)
 	var room := FitCenter.safe_rect(root)
 	var text := RichTextLabel.new()
+	text.name = "RulesText"
 	text.bbcode_enabled = true
-	text.custom_minimum_size = Vector2(minf(1150.0, room.size.x - 150.0), maxf(300.0, room.size.y - 250.0 * WoodUI.font_scale))
+	var text_size := Vector2(minf(1150.0, room.size.x - 150.0), maxf(300.0, room.size.y - 250.0 * WoodUI.font_scale))
 	text.add_theme_font_override("normal_font", WoodUI.REGULAR)
 	text.add_theme_font_override("bold_font", WoodUI.BOLD)
+	if language == "ko":
+		var korean_font: Font = TutorialText.korean_font()
+		text.add_theme_font_override("normal_font", korean_font)
+		text.add_theme_font_override("bold_font", korean_font)
 	text.add_theme_font_size_override("normal_font_size", WoodUI.fs(22))
 	text.add_theme_font_size_override("bold_font_size", WoodUI.fs(23))
 	text.add_theme_color_override("default_color", WoodUI.INK)
-	text.text = RULES_TEXT.replace("#ffd75a", "#a3501c").replace("#9fe7ff", "#2a6585")
+	text.text = TutorialText.get_text(language, "rules_body", RULES_TEXT).replace("#ffd75a", "#a3501c").replace("#9fe7ff", "#2a6585")
 	if OS.has_feature("mobile"):
-		text.text = text.text.replace("ПКМ — рассмотреть любую открытую карту. Пробел — ускорить анимации. F11 — полный экран. Esc — меню.",
-			"Подержи палец на открытой карте, чтобы рассмотреть её. Кнопка «Назад» — меню.").replace("кликни", "нажми") \
-			.replace("Клик по", "Нажатие на")
-	sheet.add_child(text)
-	var back := WoodUI.button("Понятно!", UI.GREEN, 30, Vector2(260, 64))
+		if language == "ru":
+			text.text = text.text.replace("ПКМ — рассмотреть любую открытую карту. Пробел — ускорить анимации. F11 — полный экран. Esc — меню.",
+				"Подержи палец на открытой карте, чтобы рассмотреть её. Кнопка «Назад» — меню.").replace("кликни", "нажми") \
+				.replace("Клик по", "Нажатие на")
+		else:
+			text.text = text.text.replace(TutorialText.TEXT[language]["rules_desktop_controls"],
+					TutorialText.TEXT[language]["rules_mobile_controls"])
+	if phone_layout:
+		var scroll := ScrollContainer.new()
+		scroll.name = "RulesScroll"
+		scroll.custom_minimum_size = text_size
+		scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+		text.fit_content = true
+		text.scroll_active = false
+		text.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		scroll.add_child(text)
+		sheet.add_child(scroll)
+	else:
+		text.custom_minimum_size = text_size
+		sheet.add_child(text)
+	var back_text := TutorialText.get_text(language, "rules_back", "Назад") if from_tutorial else "Понятно!"
+	var back := WoodUI.button(back_text, UI.GREEN, 30, Vector2(260, 64))
+	if language == "ko":
+		back.add_theme_font_override("font", TutorialText.korean_font())
 	back.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-	back.pressed.connect(func(): _close_overlay(root))
+	back.pressed.connect(func():
+		_close_overlay(root)
+		if from_tutorial:
+			show_tutorial_language_menu(true))
 	v.add_child(back)
 	_pop_in(v)
 
@@ -1177,7 +1363,7 @@ const RULES_TEXT := """[b][color=#ffd75a]Цель.[/color][/b] Снизь жиз
 [b][color=#ffd75a]Розыгрыш карт.[/color][/b] Стоимость в кружке — это и число действий, и сколько земель нужного типа ты должен контролировать. Радужным картам подходит любая земля. Перевёрнутые земли не считаются ни за какой тип. Карты стоимостью 0 можно играть в свой ход всегда.
 Существо можно сыграть в любую свою зону. Если там уже стоит твоё неповёрнутое существо, оно заменяется и уходит в сброс. Строения кладутся под землю и заменяются так же. Заклинания срабатывают и уходят в сброс.
 
-[b][color=#9fe7ff]Лёд.[/color][/b] Карты Ледяного Короля и Гантера замораживают земли (Ледяной жетон). На замёрзшую землю нельзя играть существ и строения. В свой ход можно потратить 1 действие и растопить лёд на своей земле — кликни по замёрзшей земле.
+[b][color=#9fe7ff]Лёд.[/color][/b] Карты Ледяного Короля и Гантера замораживают земли (Ледяной жетон). Обычно на замёрзшую землю нельзя играть существ, но строения можно. В свой ход можно сбросить карту и растопить лёд на своей земле — кликни по замёрзшей земле.
 
 [b][color=#ffd75a]Урон.[/color][/b] Урон на существах сохраняется между ходами. Когда урон достигает защиты, существо погибает и уходит в сброс владельца. «Восстановить урон» — снять урон с существа, «восстановить HP» — вернуть жизни игроку (не больше 25).
 
@@ -1783,6 +1969,23 @@ func _on_game_over(winner: int, note := "") -> void:
 		auto_ref["active"] = false
 		_export_replay(replay_data))
 	row.add_child(save)
+	if _mode == "tutorial":
+		again.visible = false
+		other.text = "Продвинутое обучение"
+		other.pressed.connect(func():
+			_close_overlay(root)
+			_game_over_root = null
+			_end_game()
+			show_title()
+			show_tutorial_language_menu(false, true))
+		save.visible = false
+		menu.pressed.connect(func():
+			_close_overlay(root)
+			_game_over_root = null
+			_end_game()
+			show_title())
+		_pop_in(v)
+		return
 	if online:
 		# The next match can be played with another deck: the pick goes to the others.
 		other.text = "Сменить колоду"

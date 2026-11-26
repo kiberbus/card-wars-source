@@ -204,7 +204,7 @@ func _want(r: TextureRect, path: String) -> void:
 
 
 func _ask(r: TextureRect, path: String) -> void:
-	if ResourceLoader.has_cached(path):
+	if DisplayServer.get_name() == "headless" or ResourceLoader.has_cached(path):
 		r.texture = _trimmed(load(path))
 		return
 	if not _pending.has(path):

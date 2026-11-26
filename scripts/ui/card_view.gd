@@ -92,6 +92,9 @@ static func prefetch(ids: Array, keep_only := false) -> void:
 			if not ids.has(id):
 				_tex_cache.erase(id)
 				_upright_cache.erase(id)
+	# Godot 4.7's headless renderer can race when textures are loaded on worker threads.
+	if DisplayServer.get_name() == "headless":
+		return
 	for id: String in ids:
 		if not (_tex_cache.has(id) or _loading.has(id) or _queue.has(id)):
 			_queue.append(id)

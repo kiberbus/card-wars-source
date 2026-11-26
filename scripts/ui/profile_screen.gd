@@ -266,6 +266,10 @@ func _build_chooser() -> Control:
 ## kept the profile from opening for seconds.
 func _load_thumbs(cells: Dictionary) -> void:
 	var todo: Array = cells.keys().filter(func(h): return not _thumbs.has(h) and CardDB.has_hero_card(h))
+	if DisplayServer.get_name() == "headless":
+		for hero: String in todo:
+			cells[hero].set_texture(_thumb(hero))
+		return
 	for hero: String in todo:
 		ResourceLoader.load_threaded_request(CardDB.hero_thumb(hero))
 	var start := Time.get_ticks_msec()

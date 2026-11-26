@@ -359,6 +359,19 @@ func _menus() -> void:
 	main.show_title()
 	await _wait(0.6)
 	await _check("title")
+	_press(main.title_root, "Обучение")
+	await _wait(0.6)
+	var basic := _button(main.overlay, "Базовое обучение")
+	if basic == null or basic.disabled:
+		print("FAIL basic tutorial exists and is enabled")
+		fails += 1
+	for text in ["Продвинутое", "Тренажер"]:
+		var option := _button(main.overlay, text)
+		if option == null or not option.disabled:
+			print("FAIL training option «%s» exists and is disabled" % text)
+			fails += 1
+	await _check("training")
+	await _close_overlays()
 	main.show_play_menu()
 	await _wait(0.6)
 	await _check("play")

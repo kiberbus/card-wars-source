@@ -312,6 +312,10 @@ var sb_button: Button               # shows and hides the panel
 var _sb_press := Vector2.INF        # a press on the table while the panel is open: a tap picks what is under it
 var _sb_turn := ""                  # the turn the table last turned to (the viewer follows the turn player)
 var _arrange_button: Button
+var tutorial = null
+var tutorial_land_targets: Array = []
+var tutorial_building_targets: Array = []
+var tutorial_world_targets: Array = []
 
 
 func _ready() -> void:
@@ -2124,7 +2128,8 @@ func _update_hud() -> void:
 			else:
 				main_button.text = "В атаку!"
 		"attack":
-			main_button.text = "Атаковать всеми"
+			main_button.text = "Завершить ход" if game.attackers_left(game.turn_player).is_empty() \
+					else "Атаковать всеми"
 		_:
 			main_button.text = "…"
 	if _watching():
@@ -2581,6 +2586,8 @@ func _hero_card_texture(id: String, big := false) -> Texture2D:
 		return null
 	if big:
 		var path := CardDB.hero_image(id)
+		if DisplayServer.get_name() == "headless":
+			return load(path)
 		if not _hero_pics.has(id):
 			_hero_pics[id] = load(path) if ResourceLoader.has_cached(path) 				else path if ResourceLoader.load_threaded_request(path) == OK else null
 		if _hero_pics[id] is String and ResourceLoader.load_threaded_get_status(path) != ResourceLoader.THREAD_LOAD_IN_PROGRESS:
@@ -2658,6 +2665,8 @@ func _show_preview() -> void:
 			v = _peek_view
 		hero = _peek_hero
 	if v == null and hero >= 0:
+		if tutorial != null:
+			tutorial.show_card_property("")
 		var ps = game.players[hero]
 		preview_rect.texture = _hero_card_texture(ps.hero_card, true)
 		var hc: Dictionary = CardDB.hero_card(ps.hero_card) if CardDB.has_hero_card(ps.hero_card) else {}
@@ -2668,14 +2677,20 @@ func _show_preview() -> void:
 		preview_info.text = info
 		return
 	if v == null or not v.face_up or v.card_id == "":
+		if tutorial != null:
+			tutorial.show_card_property("")
 		preview_rect.texture = null
 		preview_info.text = ""
 		return
 	if v.secret:
+		if tutorial != null:
+			tutorial.show_card_property("")
 		preview_rect.texture = null
 		preview_info.text = CardDB.get_def(v.card_id)["name"]
 		return
 	preview_rect.texture = CardView.texture_for(v.card_id)
+	if tutorial != null:
+		tutorial.show_card_property(v.card_id)
 	var w: Dictionary = game.where(v.uid)
 	var d := CardDB.get_def(v.card_id)
 	var info := CardDB.type_line(d)
@@ -3778,6 +3793,9 @@ func _issue(c: Dictionary, timed_out := false) -> void:
 func _issue_as(p: int, c: Dictionary, timed_out := false) -> void:
 	if _busy:
 		return
+	if tutorial != null and not tutorial.allow_command(p, c):
+		tutorial.reject_command()
+		return
 	if net != null:
 		_net_seq_out += 1
 		var msg := {"t": "cmd", "p": p, "c": c, "n": _net_seq_out, "h": game.state_hash()}
@@ -3789,6 +3807,8 @@ func _issue_as(p: int, c: Dictionary, timed_out := false) -> void:
 	if timed_out:
 		_add_log("— Время хода вышло")
 	await _run(func(): await _command(p, c))
+	if tutorial != null:
+		tutorial.command_resolved(p, c)
 
 
 ## Runs one engine command with input locked, then checks what comes next.
@@ -3810,7 +3830,8 @@ func _run(cmd: Callable) -> void:
 		return      # a replay has every step recorded, the turn ends included
 	if _concede_wanted:
 		_try_concede()
-	if game.phase == "attack" and game.attackers_left(game.turn_player).is_empty():
+	if game.phase == "attack" and game.attackers_left(game.turn_player).is_empty() \
+			and not (tutorial != null and tutorial.hold_combat_end(game.turn_player)):
 		# Everybody has attacked: the turn ends. Online, only the acting side says so.
 		if net == null:
 			_run(func(): await game.cmd_end_turn(game.turn_player))
@@ -3990,6 +4011,8 @@ func _run_ai_loop() -> void:
 					if not spare.is_empty():
 						cmd = spare
 		await _run_ai_command(p, cmd)
+		if tutorial != null:
+			await tutorial.after_ai_command(p, cmd)
 		AIHelper.clear_plan(game)
 	_ai_turn_running = false
 
@@ -4414,7 +4437,8 @@ func _local_choice(req: Dictionary):
 		text = "Выбирает %s — %s" % [game.players[chooser_p].name, text]
 		picker_title.text = text
 	prompt_label.text = text
-	skip_button.visible = req.get("optional", false)
+	skip_button.visible = req.get("optional", false) \
+			and (tutorial == null or tutorial.optional_choice_skip_allowed())
 	prompt_panel.visible = true
 	_update_hud()
 	await get_tree().process_frame
@@ -4432,6 +4456,9 @@ func _local_choice(req: Dictionary):
 
 func _resolve_choice(result) -> void:
 	if _choice == null:
+		return
+	if tutorial != null and not tutorial.allow_choice(_choice, result):
+		tutorial.reject_choice()
 		return
 	_choice_result = result
 	UI.sfx("select")
@@ -4706,6 +4733,19 @@ func _draw_decor() -> void:
 			var rot := _card_rot(side, lane)
 			_draw_shape(_shape(creature_pos(side, lane), _creature_slot(), rot), Color.WHITE, true, 2.0, _slot_box)
 			_draw_shape(_shape(building_pos(side, lane), _building_slot(), rot), Color.WHITE, true, 2.0, _slot_box)
+	for spot: Dictionary in tutorial_land_targets:
+		var sh := _land_shape(int(spot["p"]), int(spot["lane"]))
+		_draw_shape(sh, Color(1.0, 0.84, 0.25, 0.22))
+		_draw_shape(sh, Color(1.0, 0.84, 0.25, 0.95), false, 5.0)
+	for spot: Dictionary in tutorial_building_targets:
+		var side := int(spot["p"])
+		var lane := int(spot["lane"])
+		var sh := _shape(building_pos(side, lane), _building_slot(), _card_rot(side, lane))
+		_draw_shape(sh, Color(1.0, 0.84, 0.25, 0.22))
+		_draw_shape(sh, Color(1.0, 0.84, 0.25, 0.95), false, 5.0)
+	for sh: Dictionary in tutorial_world_targets:
+		_draw_shape(sh, Color(1.0, 0.84, 0.25, 0.2))
+		_draw_shape(sh, Color(1.0, 0.84, 0.25, 0.95), false, 5.0)
 	# The deck drawn on the mat stays when a player's deck runs out: it goes dark.
 	var k := _pile_scale() / S_PILE
 	for side in sides:
@@ -4816,6 +4856,8 @@ func shake_screen(amount: float) -> void:
 
 
 func play(ev: Dictionary) -> void:
+	if tutorial != null:
+		tutorial.on_game_event(ev)
 	var v = views.get(ev.get("uid", -1))
 	match ev["type"]:
 		"log":
