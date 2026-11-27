@@ -317,10 +317,13 @@ func _on_matchmaking(d: Dictionary) -> void:
 			_fill_rank(d)
 		"r_found":
 			if _search_kind == "rank":
+				_match_found()
 				_enter_rank(String(d.get("code", "")))
 		"q_found":
 			if not _search_kind.begins_with("q"):
 				return
+			if not _search_found:
+				_match_found()
 			if d.get("host") == true and d.get("ticket") is String:
 				_close_search()
 				_close_window()
@@ -335,6 +338,17 @@ func _on_matchmaking(d: Dictionary) -> void:
 				m.join_friend_room(String(d["code"]), String(d.get("pass", "")))
 		"q_back":
 			_search_found = false
+
+
+## An opponent is found (a quick game or a ranked one, once per search): a bright chime (Sfx "found"),
+## heard in the background too (the game never mutes itself there), and the taskbar button
+## blinks while the window is not the active one. A sound volume of 0 keeps it quiet.
+func _match_found() -> void:
+	var sfx := m.get_node_or_null("/root/Sfx")
+	if sfx != null:
+		sfx.play("found")
+	if not DisplayServer.window_is_focused():
+		DisplayServer.window_request_attention()
 
 
 ## A ranked match is made (or we come back to ours): the lobby window shows its bans and picks.

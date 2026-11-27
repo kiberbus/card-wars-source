@@ -65,6 +65,7 @@ const BANK := {
 	"press": [["click_002", "click_003", "click_005"], -14.0, 0.05, ""],
 	"select": [["select_002"], -12.0, 0.04, ""],
 	"error": [["error_008"], -9.0, 0.0, ""],
+	"found": [["confirmation_004"], -3.0, 0.0, ""],
 }
 
 ## «Мультик»: BANK's names and some more. Each file plays at its level of
@@ -103,6 +104,7 @@ const CW_BANK := {
 	"back": [["cw/ui_back"], 0.0, 0.04, ""],
 	"select": [["cw/ui_select"], 2.0, 0.04, ""],
 	"error": [["cw/ui_error"], 0.0, 0.0, ""],
+	"found": [["confirmation_004"], -3.0, 0.0, ""],   # an opponent is found (ranked.gd)
 }
 
 ## What a set without a sound plays instead ("" = nothing).
